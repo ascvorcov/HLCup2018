@@ -1,0 +1,7 @@
+sex index - 2 sexes, ~650000 m, 650000 f
+country index - 71 countries, ~18309 users each
+status index - only 3 statuses, 433K users each
+interest index - 91 interest, users can have more than one - 
+each index record is a single interest with list of user ids
+email index - highest selectivity, by domain? lexic <> max 3 letters
+birth - by year match (between), <>

@@ -1,0 +1,11 @@
+bin
+obj
+out
+*.pdf
+*.xlsx
+*.bak
+*.exe
+input_max
+input_min
+statistics
+test
