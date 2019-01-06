@@ -118,24 +118,46 @@ namespace hlcup2018.Controllers
         }
 
         // POST /accounts/5
-        [HttpPost("{id}")]
-        public void Update(int id, [FromBody] JObject value)
+        [HttpPost("{str}")]
+        public ActionResult<string> Update(string str, [FromBody] JObject acc)
         {
+            if (acc == null || !ModelState.IsValid) return NotFound();
+            if (!int.TryParse(str, out var id)) return BadRequest();
+            if (!Storage.Instance.HasAccount(id)) return NotFound();
+            var updated = Account.FromJson(acc, id);
+            if (updated == null) return BadRequest();
+            Response.StatusCode = 202;
+            return "{}";
         }
 
         // POST /accounts/new
         [HttpPost("new")]
-        public ActionResult<string> New([FromBody] Account acc)
+        public ActionResult<string> New([FromBody] JObject acc)
         {
             if (acc == null || !ModelState.IsValid) return BadRequest();
-            Storage.Instance.AddAccount(acc);
+            var created = Account.FromJson(acc, 0);
+            if (created == null) return BadRequest();
+            Storage.Instance.AddAccount(created);
+            Response.StatusCode = 201;
             return "{}";
         }
 
         // POST /accounts/likes
         [HttpPost("likes")]
-        public void Likes(int id, [FromBody] string value)
+        public ActionResult<string> Likes([FromBody] Likes data)
         {
+            if (data == null || !ModelState.IsValid) return BadRequest();
+            foreach (var like in data.likes)
+            {
+                var liker = Storage.Instance.GetAccount(like.liker);
+                var likee = Storage.Instance.GetAccount(like.likee);
+                if (liker == null) return BadRequest();
+                if (likee == null) return BadRequest();
+                liker.AddLike(likee, like.ts);
+            }
+
+            Response.StatusCode = 202;
+            return "{}";
         }
     }
 }

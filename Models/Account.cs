@@ -12,13 +12,13 @@ namespace hlcup2018.Models
 
     private Interests interestData;
     private byte istatus;
-    private ushort cityId;
     private byte countryId;
     private byte phoneCountryCode;
-    private ushort phoneCode;
-    private int phoneNumber;
     private byte firstNameId;
+    private ushort cityId;
+    private ushort phoneCode;
     private ushort surnameId;
+    private int phoneNumber;
     private int emailId;
 
     public int id;
@@ -86,7 +86,7 @@ namespace hlcup2018.Models
     }
 
     public Premium premium;
-    public Like[] likes;
+    public List<Like> likes;
 
     public struct Premium
     {
@@ -103,6 +103,14 @@ namespace hlcup2018.Models
     {
       public int id;
       public int ts;
+    }
+
+    public void AddLike(Account other, int ts)
+    {
+      if (this.likes == null)
+        this.likes = new List<Like>();
+
+      this.likes.Add(new Like { id = other.id, ts = ts });
     }
 
     public bool MatchBySex(char s)
@@ -282,122 +290,153 @@ namespace hlcup2018.Models
       }
     }
 
-    public static Account CreateNewFromJson(JObject o)
+    public static Account FromJson(JObject o, int existingId)
     {
       int id = 0;
-      string email;
-      string fname;
-      string sname;
-      string phone;
-      string country;
-      string city;
-      string sex;
-      string status;
-      string[] interests;
-      Like[] likes;
-      int birth;
-      int joined;
-      Premium premium;
+      string email = null;
+      string fname = null;
+      string sname = null;
+      string phone = null;
+      string country = null;
+      string city = null;
+      string sex = null;
+      string status = null;
+      string[] interests = null;
+      List<Like> likes = null;
+      int birth = 0;
+      int joined = 0;
+      Premium premium = default(Premium);
       
-      foreach (var kvp in o)
+      try
       {
-        switch(kvp.Key)
+        foreach (var kvp in o)
         {
-          case "id": // unique, int
-            if (kvp.Value.Type != JTokenType.Integer) return null; 
-            id = kvp.Value.Value<int>();
-            if (Storage.Instance.HasAccount(id)) return null;
-            break;
+          switch(kvp.Key)
+          {
+            case "id": // unique, int
+              if (kvp.Value.Type != JTokenType.Integer) return null; 
+              id = kvp.Value.Value<int>();
+              if (existingId > 0) return null; // id should not be posted into update json
+              if (Storage.Instance.HasAccount(id)) return null;
+              break;
 
-          case "email": // 100 chars, unique
-            if (kvp.Value.Type != JTokenType.String) return null;
-            email = kvp.Value.Value<string>() ?? "";
-            if (email.Length > 100) return null;
-            if (Storage.Instance.emailMap.Contains(email)) return null;
-            break;
+            case "email": // 100 chars, unique
+              if (kvp.Value.Type != JTokenType.String) return null;
+              email = kvp.Value.Value<string>() ?? "";
+              if (email.Length > 100) return null;
+              if (email != "" && !email.Contains("@")) return null;
+              if (Storage.Instance.emailMap.Contains(email)) return null;
+              break;
 
-          case "fname": // 50 chars
-            if (kvp.Value.Type != JTokenType.String) return null;
-            fname = kvp.Value.Value<string>() ?? "";
-            if (fname.Length > 50) return null;
-            break;
+            case "fname": // 50 chars
+              if (kvp.Value.Type != JTokenType.String) return null;
+              fname = kvp.Value.Value<string>() ?? "";
+              if (fname.Length > 50) return null;
+              break;
 
-          case "sname": // 50 chars
-            if (kvp.Value.Type != JTokenType.String) return null;
-            sname = kvp.Value.Value<string>() ?? "";
-            if (sname.Length > 50) return null;
-            break;
+            case "sname": // 50 chars
+              if (kvp.Value.Type != JTokenType.String) return null;
+              sname = kvp.Value.Value<string>() ?? "";
+              if (sname.Length > 50) return null;
+              break;
 
-          case "phone": // 16 chars, unique, can be null
-            if (kvp.Value.Type != JTokenType.String) return null;
-            phone = kvp.Value.Value<string>() ?? "";
-            if (phone.Length == 0) break;
-            if (phone.Length != 13 || phone[1] != '(' || phone[5] != ')') return null;
-            break;
+            case "phone": // 16 chars, unique, can be null
+              if (kvp.Value.Type != JTokenType.String) return null;
+              phone = kvp.Value.Value<string>() ?? "";
+              if (phone.Length == 0) break;
+              if (phone.Length != 13 || phone[1] != '(' || phone[5] != ')') return null;
+              break;
 
-          case "sex":  // m/f
-            if (kvp.Value.Type != JTokenType.String) return null;
-            sex = kvp.Value.Value<string>() ?? "";
-            if (sex != "m" || sex != "f") return null;
-            break;
-          
-          case "birth": //Ограничено снизу 01.01.1950 и сверху 01.01.2005
-            if (kvp.Value.Type != JTokenType.Integer) return null;
-            birth = kvp.Value.Value<int>();
-            if (birth < 0) return null;
-            var dt = DateTimeOffset.FromUnixTimeSeconds(birth).UtcDateTime;
-            if (dt < new DateTime(1950,1,1) || dt > new DateTime(2005,1,1)) return null;
-            break;
+            case "sex":  // m/f
+              if (kvp.Value.Type != JTokenType.String) return null;
+              sex = kvp.Value.Value<string>() ?? "";
+              if (sex != "m" && sex != "f") return null;
+              break;
+            
+            case "birth": // limited 01.01.1950 - 01.01.2005
+              if (kvp.Value.Type != JTokenType.Integer) return null;
+              birth = kvp.Value.Value<int>();
+              if (birth < 0) return null;
+              var dt = DateTimeOffset.FromUnixTimeSeconds(birth).UtcDateTime;
+              if (dt < new DateTime(1950,1,1) || dt > new DateTime(2005,1,1)) return null;
+              break;
 
-          case "country":  // 50 chars
-            if (kvp.Value.Type != JTokenType.String) return null;
-            country = kvp.Value.Value<string>() ?? "";
-            if (country.Length > 50) return null;
-            break;
+            case "country":  // 50 chars
+              if (kvp.Value.Type != JTokenType.String) return null;
+              country = kvp.Value.Value<string>() ?? "";
+              if (country.Length > 50) return null;
+              break;
 
-          case "city":  // 50 chars
-            if (kvp.Value.Type != JTokenType.String) return null;
-            city = kvp.Value.Value<string>() ?? "";
-            if (city.Length > 50) return null;
-            break;
+            case "city":  // 50 chars
+              if (kvp.Value.Type != JTokenType.String) return null;
+              city = kvp.Value.Value<string>() ?? "";
+              if (city.Length > 50) return null;
+              break;
 
-          case "joined": //снизу 01.01.2011, сверху 01.01.2018.
-            if (kvp.Value.Type != JTokenType.Integer) return null;
-            joined = kvp.Value.Value<int>();
-            if (joined < 0) return null;
-            var joinedDate = DateTimeOffset.FromUnixTimeSeconds(joined).UtcDateTime;
-            if (joinedDate < new DateTime(2011,1,1) || joinedDate > new DateTime(2018,1,1)) return null;
-            break;
+            case "joined": //limited 01.01.2011 - 01.01.2018.
+              if (kvp.Value.Type != JTokenType.Integer) return null;
+              joined = kvp.Value.Value<int>();
+              if (joined < 0) return null;
+              var joinedDate = DateTimeOffset.FromUnixTimeSeconds(joined).UtcDateTime;
+              if (joinedDate < new DateTime(2011,1,1) || joinedDate > new DateTime(2018,1,1)) return null;
+              break;
 
-          case "status": 
-            if (kvp.Value.Type != JTokenType.String) return null;
-            status = kvp.Value.Value<string>() ?? "";
-            if (!statuses.Contains(status)) return null;
-            break;
+            case "status": 
+              if (kvp.Value.Type != JTokenType.String) return null;
+              status = kvp.Value.Value<string>() ?? "";
+              if (!statuses.Contains(status)) return null;
+              break;
 
-          case "interests": //100 sym each max
-            if (kvp.Value.Type != JTokenType.Array) return null;
-            interests = kvp.Value.Values<string>().ToArray();
-            break;
+            case "interests": //100 sym each max
+              if (kvp.Value.Type != JTokenType.Array) return null;
+              interests = kvp.Value.Values<string>().ToArray();
+              break;
 
-          case "premium": //start-finish, timestamp-ы с нижней границей 01.01.2018.
-            if (kvp.Value.Type != JTokenType.Object) return null;
-            premium = kvp.Value.Value<Premium>();
-            var premiumStart = DateTimeOffset.FromUnixTimeSeconds(premium.start).UtcDateTime;
-            var premiumEnd = DateTimeOffset.FromUnixTimeSeconds(premium.finish).UtcDateTime;
-            if (premiumStart < new DateTime(2018,1,1) || premiumEnd < new DateTime(2018,1,1)) return null;
-            break;
+            case "premium": //start-finish, timestamps lower border 01.01.2018.
+              if (kvp.Value.Type != JTokenType.Object) return null;
+              premium = kvp.Value.ToObject<Premium>();
+              var premiumStart = DateTimeOffset.FromUnixTimeSeconds(premium.start).UtcDateTime;
+              var premiumEnd = DateTimeOffset.FromUnixTimeSeconds(premium.finish).UtcDateTime;
+              if (premiumStart < new DateTime(2018,1,1) || premiumEnd < new DateTime(2018,1,1)) return null;
+              break;
 
-          case "likes": // id always exists, ts - ?
-            if (kvp.Value.Type != JTokenType.Array) return null;
-            likes = kvp.Value.Values<Like>().ToArray();
-            foreach (var like in likes)
-              if (!Storage.Instance.HasAccount(like.id) || like.ts <= 0)
-                return null;
-            break;
+            case "likes": // id always exists, ts - ?
+              if (kvp.Value.Type != JTokenType.Array) return null;
+              var arr = (JArray)kvp.Value;
+              likes = arr.Select(t => t.ToObject<Like>()).ToList();
+              foreach (var like in likes)
+                if (!Storage.Instance.HasAccount(like.id) || like.ts <= 0)
+                  return null;
+              break;
+
+            default: return null;
+          }
         }
       }
-      return null;
+      catch
+      {
+        return null;
+      }
+
+      if (existingId == 0 && id == 0) return null; // id not specified for new account
+
+      var ret = existingId == 0 ? new Account() : Storage.Instance.GetAccount(existingId);
+      
+      if (id > 0) ret.id = id;
+      if (email != null) ret.email = email;
+      if (birth > 0) ret.birth = birth;
+      if (status != null) ret.status = status;
+      if (fname != null) ret.fname = fname;
+      if (sname != null) ret.sname = sname;
+      if (city != null) ret.city = city;
+      if (country != null) ret.country = country;
+      if (phone != null) ret.phone = phone;
+      if (sex != null) ret.sex = sex[0];
+      if (joined > 0) ret.joined = joined;
+      if (interests != null) ret.interests = interests;
+      if (likes != null) ret.likes = likes;
+      if (premium.start > 0) ret.premium = premium;
+      return ret;
     }
 
     public static bool IsValidStatus(string status) => statuses.Contains(status);

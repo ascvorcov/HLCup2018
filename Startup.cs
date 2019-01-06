@@ -14,7 +14,12 @@ public class Startup
 {
     public void ConfigureServices(IServiceCollection services)
     {
-        services.AddMvc().AddJsonOptions(options =>
+        services.AddMvc()
+        .AddMvcOptions(options =>
+        {
+            options.AllowEmptyInputInBodyModelBinding = true;
+        })
+        .AddJsonOptions(options =>
         {
             //options.SerializerSettings.StringEscapeHandling = Newtonsoft.Json.StringEscapeHandling.EscapeNonAscii;
         });
