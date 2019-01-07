@@ -69,8 +69,8 @@ start:
     {
       if (string.IsNullOrEmpty(s)) return 0;
 
-      var hash = s.GetHashCode();
-      var bucketIndex = (hash & 0x7FFFFFFF) % buckets.Length;
+      var hash = (uint)s.GetHashCode();
+      var bucketIndex = hash % buckets.Length;
       var selected = buckets[bucketIndex];
       
       while (selected != 0)
@@ -114,7 +114,7 @@ start:
       for (i = 1; i < oldsize; ++i)
       {
         var hash = oldkeys[i].hash;
-        var bucketIndex = (hash & 0x7FFFFFFF) % buckets.Length;
+        var bucketIndex = hash % buckets.Length;
         keys[i].next = buckets[bucketIndex];
         buckets[bucketIndex] = i;
       }
