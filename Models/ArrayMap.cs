@@ -33,9 +33,9 @@
     {
       if (string.IsNullOrEmpty(s)) return 0;
 
-      var hash = s.GetHashCode();
+      var hash = (uint)s.GetHashCode();
 start:
-      var bucketIndex = (hash & 0x7FFFFFFF) % buckets.Length;
+      var bucketIndex = hash % buckets.Length;
       var selected = buckets[bucketIndex];
 
       bool collision = selected != 0;
@@ -124,7 +124,7 @@ start:
     {
       public string key;
       public int next;
-      public int hash;
+      public uint hash;
     }
   }
 }

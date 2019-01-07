@@ -15,6 +15,25 @@ namespace hlcup2018.Models
     public readonly ArrayMap surnamesMap = new ArrayMap();
     public readonly EmailMap emailMap = new EmailMap();
     private readonly Account[] accounts = new Account[1600000];
+    private readonly int[] indexBySexCountryStatus = new int[1600000];
+
+    public Dictionary<int, List<int>> indexOfLikedBy = new Dictionary<int, List<int>>();
+    public Dictionary<string, int> fieldSelectivity = new Dictionary<string, int>
+    {
+      ["sex"] = 2,
+      ["status"] = 3,
+      ["city"] = 610,
+      ["country"] = 71,
+      ["fname"] = 109,
+      ["sname"] = 1639,
+      ["interests"] = 31,
+      ["domains"] = 14,
+      ["birth"] = 55, // applicable to "by year" query
+      ["phone"] = 100, // phone code
+      ["likes"] = 0, // ?
+      ["premium"] = 0 // ?
+    };
+
     public int timestamp;
     private int maxId;
 
@@ -25,7 +44,7 @@ namespace hlcup2018.Models
       maxId = Math.Max(a.id, maxId);
       this.accounts[a.id] = a;
     }
-    //public int AccountsCount => this.accounts.Count;
+
     public IEnumerable<Account> GetAllAccounts()
     {
       for (int i = 1; i <= maxId; ++i)
@@ -39,6 +58,24 @@ namespace hlcup2018.Models
         if (this.accounts[i] != null)
           yield return this.accounts[i];
     }
-  }
 
+    public void BuildIndex()
+    {
+      int index = 0;
+      //HPCsharp.Algorithm.SortRadix4()
+      foreach (var acc in GetAllAccounts().OrderBy(a => a.sex).ThenBy(a => a.country).ThenBy(a => a.status))
+      {
+        indexBySexCountryStatus[index++] = acc.id;
+        acc.RefreshLikesCache();
+      }
+    }
+
+    public IEnumerable<int> GetLikedBy(int id)
+    {
+      if (!this.indexOfLikedBy.TryGetValue(id, out var list))
+        return Enumerable.Empty<int>();
+
+      return list;
+    }
+  }
 }

@@ -153,7 +153,7 @@ namespace hlcup2018.Controllers
                 var likee = Storage.Instance.GetAccount(like.likee);
                 if (liker == null) return BadRequest();
                 if (likee == null) return BadRequest();
-                liker.AddLike(likee, like.ts);
+                liker.AddLike(likee.id, like.ts);
             }
 
             Response.StatusCode = 202;

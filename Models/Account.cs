@@ -13,7 +13,6 @@ namespace hlcup2018.Models
     private Interests interestData;
     private byte istatus;
     private byte countryId;
-    private byte phoneCountryCode;
     private byte firstNameId;
     private ushort cityId;
     private ushort phoneCode;
@@ -37,16 +36,16 @@ namespace hlcup2018.Models
 
     public string phone
     {
-      get => phoneCountryCode == 0 ? null : $"{phoneCountryCode}({phoneCode:000}){phoneNumber:0000000}";
+      get => phoneCode == 0 ? null : $"8({phoneCode:000}){phoneNumber:0000000}";
       set
       {
         if (string.IsNullOrEmpty(value))
         {
-          phoneCountryCode = 0;
+          phoneCode = 0;
           return;
         }
+        
         var phoneChunks = value.Split('(', ')');
-        this.phoneCountryCode = byte.Parse(phoneChunks[0]);
         this.phoneCode = ushort.Parse(phoneChunks[1]);
         this.phoneNumber = int.Parse(phoneChunks[2]);
       }
@@ -85,8 +84,9 @@ namespace hlcup2018.Models
       set => interestData = new Interests(value);
     }
 
-    public Premium premium;
     public List<Like> likes;
+
+    public Premium premium;
 
     public struct Premium
     {
@@ -105,12 +105,31 @@ namespace hlcup2018.Models
       public int ts;
     }
 
-    public void AddLike(Account other, int ts)
+    public ushort GetPhoneCode() => phoneCode;
+    
+    public void RefreshLikesCache()
+    {
+      if (this.likes == null) return;
+      foreach (var like in this.likes)
+      {
+        var index = Storage.Instance.indexOfLikedBy;
+        if (!index.TryGetValue(like.id, out var list))
+          index[like.id] = list = new List<int>();
+        list.Add(this.id);
+      }
+    }
+
+    public void AddLike(int otherId, int ts)
     {
       if (this.likes == null)
         this.likes = new List<Like>();
+      this.likes.Add(new Like { id = otherId, ts = ts });
+      
+      var index = Storage.Instance.indexOfLikedBy;
 
-      this.likes.Add(new Like { id = other.id, ts = ts });
+      if (!index.TryGetValue(otherId, out var list))
+        index[otherId] = list = new List<int>();
+      list.Add(this.id);
     }
 
     public bool MatchBySex(char s)
@@ -191,7 +210,7 @@ namespace hlcup2018.Models
     {
       // finds all records which have phone if hasPhone = true
       // if hasPhone = false, finds all records with empty phone.
-      return hasPhone ? this.phoneCountryCode > 0 : this.phoneCountryCode == 0;
+      return hasPhone ? this.phoneCode > 0 : this.phoneCode == 0;
     }
 
     public bool MatchByCountry(string cnt)
@@ -513,8 +532,8 @@ namespace hlcup2018.Models
     public IEnumerable<Account> Suggest(string country, string city)
     {
       var storage = Storage.Instance;
-      var countryId = country == null ? -2 : Storage.Instance.countriesMap.Find(country);
-      var cityId = city == null ? -2 : Storage.Instance.citiesMap.Find(city);
+      var countryId = country == null ? -2 : storage.countriesMap.Find(country);
+      var cityId = city == null ? -2 : storage.citiesMap.Find(city);
 
       if (countryId == -1)return Enumerable.Empty<Account>(); // invalid country or city requested
       if (cityId == -1) return Enumerable.Empty<Account>();
@@ -525,8 +544,16 @@ namespace hlcup2018.Models
       // return id and similarity index
       IEnumerable<(int id,double sim)> Filter()
       {
-        foreach (var acc in storage.GetAllAccounts())
+        // first gather all users who liked the same users as we did
+
+        var usersWeLiked = this.likes;
+        if (usersWeLiked == null) 
+          yield break;
+
+        var usersLikedSame = usersWeLiked.SelectMany(u => storage.GetLikedBy(u.id));
+        foreach (var accId in usersLikedSame.Distinct())
         {
+          var acc = storage.GetAccount(accId);
           if (acc.sex != this.sex) continue;
           if (countryId > 0 && acc.countryId != countryId) continue;
           if (cityId > 0 && acc.cityId != cityId) continue;

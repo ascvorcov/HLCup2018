@@ -55,14 +55,29 @@ public class StorageLoader
     Console.WriteLine("First names:{0}", Storage.Instance.firstNamesMap.Count);
     Console.WriteLine("Surnames:{0}", Storage.Instance.surnamesMap.Count);
     Console.WriteLine("Interests:{0}", Storage.Instance.interestsMap.Count);
+    Console.WriteLine("Phone codes:{0}", Storage.Instance.GetAllAccounts().Select(x => x.GetPhoneCode()).Distinct().Count());
     Console.WriteLine("Domains:{0}", Storage.Instance.emailMap.GetAllDomains().Count());
     Console.WriteLine("Timestamp:{0}", Storage.Instance.timestamp);
+
+    /*int[] interests = new int[Storage.Instance.interestsMap.Count - 1];
+    foreach (var account in Storage.Instance.GetAllAccounts())
+    {
+      foreach (var id in account.GetInterestIds()) interests[id - 1]++;
+    }
+    Console.WriteLine("Average/Min/Max selectivity of interests: {0}/{1}/{2}", 
+    interests.Average(), 
+    interests.Min(), 
+    interests.Max());*/
+
 
     System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
     GC.Collect(2, GCCollectionMode.Forced, true, true);
     GC.WaitForPendingFinalizers();
     GC.WaitForFullGCComplete();
 
+    Console.WriteLine("Started building index");
+    Storage.Instance.BuildIndex();
+    Console.WriteLine("Index ready");
   }
 
   public class Accounts { public Account[] accounts; }
