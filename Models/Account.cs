@@ -44,7 +44,7 @@ namespace hlcup2018.Models
           phoneCode = 0;
           return;
         }
-        
+
         var phoneChunks = value.Split('(', ')');
         this.phoneCode = ushort.Parse(phoneChunks[1]);
         this.phoneNumber = int.Parse(phoneChunks[2]);
