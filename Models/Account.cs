@@ -21,6 +21,11 @@ namespace hlcup2018.Models
     private int emailId;
 
     public int id;
+    public char sex;
+    public int birth;
+    public int joined;
+    public List<Like> likes;
+    public Premium premium;
 
     public string fname
     {
@@ -51,9 +56,6 @@ namespace hlcup2018.Models
       }
     }
 
-    public char sex;
-    public int birth;
-    public int joined;
     public string country
     {
       get => Storage.Instance.countriesMap.Get(this.countryId);
@@ -84,10 +86,6 @@ namespace hlcup2018.Models
       set => interestData = new Interests(value);
     }
 
-    public List<Like> likes;
-
-    public Premium premium;
-
     public struct Premium
     {
       public int start;
@@ -105,31 +103,19 @@ namespace hlcup2018.Models
       public int ts;
     }
 
+    public ushort GetCityId() => cityId;
+    public byte GetCountryId() => countryId;
     public ushort GetPhoneCode() => phoneCode;
+    public byte GetStatusId() => istatus;
     
-    public void RefreshLikesCache()
-    {
-      if (this.likes == null) return;
-      foreach (var like in this.likes)
-      {
-        var index = Storage.Instance.indexOfLikedBy;
-        if (!index.TryGetValue(like.id, out var list))
-          index[like.id] = list = new List<int>();
-        list.Add(this.id);
-      }
-    }
-
     public void AddLike(int otherId, int ts)
     {
-      if (this.likes == null)
-        this.likes = new List<Like>();
-      this.likes.Add(new Like { id = otherId, ts = ts });
-      
-      var index = Storage.Instance.indexOfLikedBy;
-
-      if (!index.TryGetValue(otherId, out var list))
-        index[otherId] = list = new List<int>();
-      list.Add(this.id);
+      lock (this)
+      {
+        if (this.likes == null)
+          this.likes = new List<Like>();
+        this.likes.Add(new Like { id = otherId, ts = ts });
+      }
     }
 
     public bool MatchBySex(char s)
@@ -326,6 +312,7 @@ namespace hlcup2018.Models
       int joined = 0;
       Premium premium = default(Premium);
       
+      var storage = Storage.Instance;
       try
       {
         foreach (var kvp in o)
@@ -336,7 +323,7 @@ namespace hlcup2018.Models
               if (kvp.Value.Type != JTokenType.Integer) return null; 
               id = kvp.Value.Value<int>();
               if (existingId > 0) return null; // id should not be posted into update json
-              if (Storage.Instance.HasAccount(id)) return null;
+              if (storage.HasAccount(id)) return null;
               break;
 
             case "email": // 100 chars, unique
@@ -344,7 +331,7 @@ namespace hlcup2018.Models
               email = kvp.Value.Value<string>() ?? "";
               if (email.Length > 100) return null;
               if (email != "" && !email.Contains("@")) return null;
-              if (Storage.Instance.emailMap.Contains(email)) return null;
+              if (storage.emailMap.Contains(email)) return null;
               break;
 
             case "fname": // 50 chars
@@ -424,7 +411,7 @@ namespace hlcup2018.Models
               var arr = (JArray)kvp.Value;
               likes = arr.Select(t => t.ToObject<Like>()).ToList();
               foreach (var like in likes)
-                if (!Storage.Instance.HasAccount(like.id) || like.ts <= 0)
+                if (!storage.HasAccount(like.id) || like.ts <= 0)
                   return null;
               break;
 
@@ -439,22 +426,29 @@ namespace hlcup2018.Models
 
       if (existingId == 0 && id == 0) return null; // id not specified for new account
 
-      var ret = existingId == 0 ? new Account() : Storage.Instance.GetAccount(existingId);
+      var ret = existingId == 0 ? new Account() : storage.GetAccount(existingId);
       
-      if (id > 0) ret.id = id;
-      if (email != null) ret.email = email;
-      if (birth > 0) ret.birth = birth;
-      if (status != null) ret.status = status;
-      if (fname != null) ret.fname = fname;
-      if (sname != null) ret.sname = sname;
-      if (city != null) ret.city = city;
-      if (country != null) ret.country = country;
-      if (phone != null) ret.phone = phone;
-      if (sex != null) ret.sex = sex[0];
-      if (joined > 0) ret.joined = joined;
-      if (interests != null) ret.interests = interests;
-      if (likes != null) ret.likes = likes;
-      if (premium.start > 0) ret.premium = premium;
+      lock (ret)
+      {
+        if (id > 0) ret.id = id;
+        if (email != null) ret.email = email;
+        if (birth > 0) ret.birth = birth;
+        if (status != null) ret.status = status;
+        if (fname != null) ret.fname = fname;
+        if (sname != null) ret.sname = sname;
+        if (city != null) ret.city = city;
+        if (country != null) ret.country = country;
+        if (phone != null) ret.phone = phone;
+        if (sex != null) ret.sex = sex[0];
+        if (joined > 0) ret.joined = joined;
+        if (interests != null) ret.interests = interests;
+        if (likes != null) ret.likes = likes;
+        if (premium.start > 0) ret.premium = premium;
+
+        if (likes != null)
+          storage.likesIndexDirty = true;
+      }
+
       return ret;
     }
 

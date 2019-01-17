@@ -48,6 +48,7 @@ public class StorageLoader
       DeserializeZip(archive.Entries);
     }
 
+
     Console.WriteLine("Statistics:");
     Console.WriteLine("Accounts:{0}", Storage.Instance.GetAllAccounts().Count());
     Console.WriteLine("Cities:{0}", Storage.Instance.citiesMap.Count);
@@ -57,7 +58,10 @@ public class StorageLoader
     Console.WriteLine("Interests:{0}", Storage.Instance.interestsMap.Count);
     Console.WriteLine("Phone codes:{0}", Storage.Instance.GetAllAccounts().Select(x => x.GetPhoneCode()).Distinct().Count());
     Console.WriteLine("Domains:{0}", Storage.Instance.emailMap.GetAllDomains().Count());
+    Console.WriteLine("Premium users:{0}", Storage.Instance.GetAllAccounts().Where(a => a.MatchIsPremium(ts)).Count());
+    Console.WriteLine("Has null premium:{0}", Storage.Instance.GetAllAccounts().Where(a => a.MatchHasPremium(false)).Count());
     Console.WriteLine("Timestamp:{0}", Storage.Instance.timestamp);
+
 
     /*int[] interests = new int[Storage.Instance.interestsMap.Count - 1];
     foreach (var account in Storage.Instance.GetAllAccounts())
@@ -78,6 +82,7 @@ public class StorageLoader
     Console.WriteLine("Started building index");
     Storage.Instance.BuildIndex();
     Console.WriteLine("Index ready");
+    Console.WriteLine(Storage.Instance.GetLikesStats());
   }
 
   public class Accounts { public Account[] accounts; }

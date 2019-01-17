@@ -8,9 +8,9 @@ public class Program
 {
     public static void Main(string[] args)
     {
-        var folder = args[0];
+        var folder = args.Length > 0 ? args[0] : null;
         var loader = new StorageLoader(Storage.Instance);
-        loader.Load(@"C:\Old\MyProjects\core\hlcup2018\" + folder + @"\data");
+        loader.Load(folder == null ? "/data/" : @"C:\Old\MyProjects\core\hlcup2018\" + folder + @"\data");
         BuildWebHost(args).Run();
     }
 

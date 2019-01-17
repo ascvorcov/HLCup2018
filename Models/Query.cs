@@ -7,6 +7,7 @@ using static hlcup2018.Models.Account;
 
 namespace hlcup2018.Models
 {
+
   public class Query
   {
     private delegate void Converter(JObject dst, Account src);
@@ -14,6 +15,10 @@ namespace hlcup2018.Models
     private readonly List<System.Predicate<Account>> predicates = new List<System.Predicate<Account>>();
 
     private readonly List<Converter> converters = new List<Converter>();
+
+    private IQueryIndex selectedIndex = null;
+
+    private bool emptyQuery = false;
 
     public int Limit = 0;
 
@@ -34,11 +39,16 @@ namespace hlcup2018.Models
 
       IEnumerable<Account> Inner()
       {
-        foreach (var acc in Storage.Instance.GetAllAccountsByDescendingId())
-        {
-          if (!predicates.All(p => p(acc))) continue;
-          yield return acc;
-        }
+        if (this.emptyQuery)
+          return Enumerable.Empty<Account>();
+
+        if (!predicates.Any())
+          return Storage.Instance.GetAllAccountsByDescendingId();
+
+        if (this.selectedIndex != null)
+          return this.selectedIndex.Select().Where(acc => predicates.All(p => p(acc)));
+
+        return Storage.Instance.GetAllAccountsByDescendingId().Where(acc => predicates.All(p => p(acc)));
       }
     }
 
@@ -47,6 +57,7 @@ namespace hlcup2018.Models
       if (string.IsNullOrEmpty(query))
         return null;
 
+      var stor = Storage.Instance;
       var parsed = HttpUtility.ParseQueryString(query);
 
       var ret = new Query();
@@ -68,7 +79,9 @@ namespace hlcup2018.Models
           case "sex_eq":
             if (value != "m" && value != "f") return null;
             ret.converters.Add((j,a) => j.Add("sex", a.sex == 'm' ? "m" : "f"));
-            ret.predicates.Add(a => a.MatchBySex(value[0]));break;
+            ret.predicates.Add(a => a.MatchBySex(value[0]));
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.sexIndex.WithKey(value[0]));
+            break;
           case "email_domain": // dont add email to converters, always included
             ret.predicates.Add(a => a.MatchByEmailDomain(value)); break;
           case "email_lt":
@@ -77,7 +90,10 @@ namespace hlcup2018.Models
             ret.predicates.Add(a => a.EmailGreaterThan(value)); break;
           case "status_eq":
             ret.converters.Add((j,a) => j.Add("status", a.status));
-            ret.predicates.Add(a => a.MatchByStatus(value)); break;
+            ret.predicates.Add(a => a.MatchByStatus(value));
+            var istat = (byte)(value[0] == 'с' ? 2 : value[0] == 'в' ? 1 : 0);
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.statusIndex.WithKey(istat));
+            break;
           case "status_neq":
             ret.converters.Add((j,a) => j.Add("status", a.status));
             ret.predicates.Add(a => a.MatchByStatusNot(value)); break;
@@ -105,29 +121,55 @@ namespace hlcup2018.Models
           case "phone_code":
             if (!ushort.TryParse(value, out var c)) return null;
             ret.converters.Add((j,a) => j.Add("phone", a.phone));
-            ret.predicates.Add(a => a.MatchByPhoneCode(c)); break;
+            ret.predicates.Add(a => a.MatchByPhoneCode(c));
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.phoneCodeIndex.WithKey(c));
+            break;
           case "phone_null":
             if (value != "0" && value != "1") return null;
             if (value == "0") ret.converters.Add((j,a) => j.Add("phone", a.phone));
-            ret.predicates.Add(a => a.MatchHasPhone(value == "0")); break;
+            else ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.phoneCodeIndex.WithKey(0));
+            ret.predicates.Add(a => a.MatchHasPhone(value == "0")); 
+            break;
           case "country_eq":
             ret.converters.Add((j,a) => j.Add("country", a.country));
-            ret.predicates.Add(a => a.MatchByCountry(value)); break;
+            ret.predicates.Add(a => a.MatchByCountry(value));
+            var countryId = stor.countriesMap.Find(value);
+            ret.emptyQuery = countryId == -1;
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.countryIndex.WithKey((byte)countryId));
+            break;
           case "country_null":
             if (value != "0" && value != "1") return null;
             if (value == "0") ret.converters.Add((j,a) => j.Add("country", a.country));
-            ret.predicates.Add(a => a.MatchHasCountry(value == "0")); break;
+            else ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.countryIndex.WithKey(0));
+            ret.predicates.Add(a => a.MatchHasCountry(value == "0"));
+            break;
           case "city_eq":
             ret.converters.Add((j,a) => j.Add("city", a.city));
-            ret.predicates.Add(a => a.MatchByCity(value)); break;
+            ret.predicates.Add(a => a.MatchByCity(value));
+            var cityId = stor.citiesMap.Find(value);
+            ret.emptyQuery = cityId == -1;
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.cityIndex.WithKey((ushort)cityId));
+            break;
           case "city_any":
             var lookupCity = value.Split(',');
             ret.converters.Add((j,a) => j.Add("city", a.city));
-            ret.predicates.Add(a => a.MatchByCity(lookupCity)); break;
+            ret.predicates.Add(a => a.MatchByCity(lookupCity));
+            var cityIds = new List<ushort>();
+            foreach(var city in lookupCity)
+            {
+              cityId = stor.citiesMap.Find(city);
+              if (cityId != -1)
+                cityIds.Add((ushort)cityId);
+            }
+            ret.emptyQuery = cityIds.Count == 0;
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.cityIndex.WithKey(cityIds.ToArray()));
+            break;
           case "city_null":
             if (value != "0" && value != "1") return null;
             if (value == "0") ret.converters.Add((j,a) => j.Add("city", a.city));
-            ret.predicates.Add(a => a.MatchHasCity(value == "0")); break;
+            else ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.cityIndex.WithKey(0));
+            ret.predicates.Add(a => a.MatchHasCity(value == "0")); 
+            break;
           case "birth_lt":
             if (!int.TryParse(value, out var ts1)) return null;
             ret.converters.Add((j,a) => j.Add("birth", a.birth));
@@ -155,7 +197,7 @@ namespace hlcup2018.Models
             ret.predicates.Add(a => a.MatchByLikes(hs)); break;
           case "premium_now":
             ret.converters.Add((j,a) => j.Add("premium", new JObject{["start"] = a.premium.start, ["finish"] = a.premium.finish}));
-            ret.predicates.Add(a => a.MatchIsPremium(Storage.Instance.timestamp)); break;
+            ret.predicates.Add(a => a.MatchIsPremium(stor.timestamp)); break;
           case "premium_null":
             if (value != "0" && value != "1") return null;
             if (value == "0") ret.converters.Add((j,a) => j.Add("premium", new JObject{["start"] = a.premium.start, ["finish"] = a.premium.finish}));
@@ -180,6 +222,11 @@ namespace hlcup2018.Models
 
         return arr;
       }*/
+
+      IQueryIndex SelectIndex(IQueryIndex left, IQueryIndex right)
+      {
+        return left?.Selectivity < right.Selectivity ? left : right;
+      }
     }
   }
 
