@@ -82,6 +82,7 @@ namespace hlcup2018.Models
             case "status":  ret[i+1] = acc.status; break;
             case "country": ret[i+1] = acc.country; break;
             case "city":    ret[i+1] = acc.city; break;
+            default: throw new Exception();
           }
         }
         return ret;

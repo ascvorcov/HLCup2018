@@ -40,7 +40,7 @@ namespace hlcup2018.Models
       this.selectivity = (int)(avg / index.Count);
     }
 
-    public IEnumerable<int> DirectGet(int key) => this.index[key];
+    public List<int> DirectGet(int key) => this.index[key];
 
     public IQueryIndex GetByKey(IEnumerable<int> keys) => new KeyedQuery(this, keys);
 
@@ -58,7 +58,7 @@ namespace hlcup2018.Models
 
       public IEnumerable<Account> Select()
       {
-        var stor = Storage.Instance;        
+        var stor = Storage.Instance;
         foreach (var id in this.keys.SelectMany(k => this.parent.index[k]).Distinct())
           yield return stor.GetAccount(id);
       }

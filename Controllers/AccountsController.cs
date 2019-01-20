@@ -47,8 +47,8 @@ namespace hlcup2018.Controllers
         [HttpGet("{id}/recommend")]
         public ActionResult<QueryResult> Recommend(int id)
         {
+            if (!Storage.Instance.HasAccount(id)) return NotFound();
             var acc = Storage.Instance.GetAccount(id);
-            if (acc == null) return NotFound();
             var parsed = HttpUtility.ParseQueryString(Request.QueryString.Value);
             var city = parsed.Get("city");
             var country = parsed.Get("country");
@@ -86,8 +86,9 @@ namespace hlcup2018.Controllers
         [HttpGet("{id}/suggest")]
         public ActionResult<QueryResult> Suggest(int id)
         {
-            var acc = Storage.Instance.GetAccount(id);
-            if (acc == null) return NotFound();
+            var stor = Storage.Instance;
+            if (!stor.HasAccount(id)) return NotFound();
+            var acc = stor.GetAccount(id);
             var parsed = HttpUtility.ParseQueryString(Request.QueryString.Value);
             var city = parsed.Get("city");
             var country = parsed.Get("country");

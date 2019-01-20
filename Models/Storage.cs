@@ -88,7 +88,7 @@ namespace hlcup2018.Models
       Console.WriteLine("index completed at " + DateTime.Now);
     }
 
-    public IEnumerable<int> GetLikedBy(int id)
+    public List<int> GetLikedBy(int id)
     {
       if (this.likesIndexDirty)
       {

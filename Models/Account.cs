@@ -19,13 +19,36 @@ namespace hlcup2018.Models
     private ushort surnameId;
     private int phoneNumber;
     private int emailId;
+    private byte joinedYear;
+    private byte birthYear;
+    private int _birth;
+    private int _joined;
 
     public int id;
     public char sex;
-    public int birth;
-    public int joined;
     public List<Like> likes;
     public Premium premium;
+
+    public int birth
+    {
+      get => _birth;
+      set
+      {
+        _birth = value;
+        birthYear = (byte)(DateTimeOffset.FromUnixTimeSeconds(this.birth).Year - 1949);
+      }
+    }
+    public int joined
+    {
+      get => _joined;
+      set
+      {
+        _joined = value;
+        joinedYear = (byte)(DateTimeOffset.FromUnixTimeSeconds(this.joined).Year - 2010);
+
+      }
+    }
+
 
     public string fname
     {
@@ -107,8 +130,8 @@ namespace hlcup2018.Models
     public byte GetCountryId() => countryId;
     public ushort GetPhoneCode() => phoneCode;
     public byte GetStatusId() => istatus;
-    public byte GetBirthYear() => (byte)(DateTimeOffset.FromUnixTimeSeconds(this.birth).Year - 1949);
-    public byte GetJoinYear() => (byte)(DateTimeOffset.FromUnixTimeSeconds(this.joined).Year - 2010);
+    public byte GetBirthYear() => birthYear;
+    public byte GetJoinYear() => joinedYear;
 
     public void AddLike(int otherId, int ts)
     {
@@ -237,12 +260,12 @@ namespace hlcup2018.Models
 
     public bool MatchBirthByYear(int year)
     {
-      return DateTimeOffset.FromUnixTimeSeconds(this.birth).Year == year;
+      return birthYear+1949 == year;
     }
     
     public bool MatchJoinedByYear(int year)
     {
-      return DateTimeOffset.FromUnixTimeSeconds(this.joined).Year == year;
+      return joinedYear+2010 == year;
     }
 
     public bool MatchInterestsContains(Interests other)
@@ -364,9 +387,7 @@ namespace hlcup2018.Models
             case "birth": // limited 01.01.1950 - 01.01.2005
               if (kvp.Value.Type != JTokenType.Integer) return null;
               birth = kvp.Value.Value<int>();
-              if (birth < 0) return null;
-              var dt = DateTimeOffset.FromUnixTimeSeconds(birth).UtcDateTime;
-              if (dt < new DateTime(1950,1,1) || dt > new DateTime(2005,1,1)) return null;
+              if (birth < -631152000 || birth > 1104537600) return null;
               break;
 
             case "country":  // 50 chars
@@ -384,9 +405,7 @@ namespace hlcup2018.Models
             case "joined": //limited 01.01.2011 - 01.01.2018.
               if (kvp.Value.Type != JTokenType.Integer) return null;
               joined = kvp.Value.Value<int>();
-              if (joined < 0) return null;
-              var joinedDate = DateTimeOffset.FromUnixTimeSeconds(joined).UtcDateTime;
-              if (joinedDate < new DateTime(2011,1,1) || joinedDate > new DateTime(2018,1,1)) return null;
+              if (joined < 1293840000 || joined > 1514764800) return null;
               break;
 
             case "status": 
@@ -403,9 +422,7 @@ namespace hlcup2018.Models
             case "premium": //start-finish, timestamps lower border 01.01.2018.
               if (kvp.Value.Type != JTokenType.Object) return null;
               premium = kvp.Value.ToObject<Premium>();
-              var premiumStart = DateTimeOffset.FromUnixTimeSeconds(premium.start).UtcDateTime;
-              var premiumEnd = DateTimeOffset.FromUnixTimeSeconds(premium.finish).UtcDateTime;
-              if (premiumStart < new DateTime(2018,1,1) || premiumEnd < new DateTime(2018,1,1)) return null;
+              if (premium.start < 1514764800 || premium.finish < 1514764800) return null;
               break;
 
             case "likes": // id always exists, ts - ?
@@ -501,14 +518,23 @@ namespace hlcup2018.Models
       var countryId = country == null ? -2 : Storage.Instance.countriesMap.Find(country);
       var cityId = city == null ? -2 : Storage.Instance.citiesMap.Find(city);
 
-      if (countryId == -1) return Enumerable.Empty<Account>(); // invalid country or city requested
-      if (cityId == -1) return Enumerable.Empty<Account>();
+      IQueryIndex index = null;
+      if (countryId == -1) 
+        return Enumerable.Empty<Account>(); // invalid country or city requested
+      else if (countryId >= 0)
+        index = storage.countryIndex.WithKey((byte)countryId);
+
+      if (cityId == -1) 
+        return Enumerable.Empty<Account>();
+      else if (cityId >= 0)
+        index = storage.cityIndex.WithKey((ushort)cityId);
 
       return Filter().OrderByDescending(x => x.com).ThenBy(x => x.id).Select(x => storage.GetAccount(x.id));
 
       IEnumerable<(int id,ulong com)> Filter()
       {
-        foreach (var acc in storage.GetAllAccounts())
+        var accounts = index == null ? storage.GetAllAccounts() : index.Select();
+        foreach (var acc in accounts)
         {
           if (acc.sex == this.sex) continue; // skip same gender
           if (countryId > 0 && acc.countryId != countryId) continue;
@@ -604,20 +630,22 @@ namespace hlcup2018.Models
     {
       if (other.likes == null || this.likes == null) return 0; // skip
 
+      double sim = 0;
+
       var thisLookup = this.likes.ToLookup(k => k.id, v => v.ts);
       var otherLookup = other.likes.ToLookup(k => k.id, v => v.ts);
 
       var intersection = thisLookup.Select(x => x.Key).Intersect(otherLookup.Select(x => x.Key));
 
-      double ret = 0;
       foreach (var commonId in intersection)
       {
         var avg1 = thisLookup[commonId].Average();
         var avg2 = otherLookup[commonId].Average();
         var diff = Math.Abs(avg1 - avg2);
-        ret += diff == 0 ? 1 : 1.0 / diff;
+        sim += diff == 0 ? 1 : 1.0 / diff;
       }
-      return ret;
+
+      return sim;
     }
   }
 
