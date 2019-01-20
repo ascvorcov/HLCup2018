@@ -181,20 +181,21 @@ namespace hlcup2018.Models
           case "birth_year":
             if (!int.TryParse(value, out var yr)) return null;
             ret.converters.Add((j,a) => j.Add("birth", a.birth));
-            ret.predicates.Add(a => a.MatchBirthByYear(yr)); break;
+            ret.predicates.Add(a => a.MatchBirthByYear(yr)); 
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.ageIndex.WithKey((byte)(yr - 1949)));
+            break;
           case "interests_contains":
-            //ret.converters.Add((j,a) => j.Add("interests", new JArray(a.interests)));
             var otherc = new Interests(value.Split(','));
             ret.predicates.Add(a => a.MatchInterestsContains(otherc)); break;
           case "interests_any":
-            //ret.converters.Add((j,a) => j.Add("interests", new JArray(a.interests)));
             var othera = new Interests(value.Split(','));
             ret.predicates.Add(a => a.MatchInterestsAny(othera)); break;
           case "likes_contains":
             var hs = value.Split(',').Select(x => int.TryParse(x, out var id) ? id : -1).ToHashSet();
             if (hs.Contains(-1)) return null;
-            //ret.converters.Add((j,a) => j.Add("likes", ToJArray(a.likes)));
-            ret.predicates.Add(a => a.MatchByLikes(hs)); break;
+            ret.predicates.Add(a => a.MatchByLikes(hs));
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.likedByIndex.GetByKey(hs));
+            break;
           case "premium_now":
             ret.converters.Add((j,a) => j.Add("premium", new JObject{["start"] = a.premium.start, ["finish"] = a.premium.finish}));
             ret.predicates.Add(a => a.MatchIsPremium(stor.timestamp)); break;

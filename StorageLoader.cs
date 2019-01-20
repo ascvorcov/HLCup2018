@@ -36,8 +36,11 @@ public class StorageLoader
   {
     var dataPath = Path.Combine(path, "data.zip");
     var optionsPath = Path.Combine(path, "options.txt");
-    if (!File.Exists(dataPath)) return;
-    if (!File.Exists(optionsPath)) return;
+    if (!File.Exists(dataPath)) 
+      Environment.Exit(1);
+
+    if (!File.Exists(optionsPath)) 
+      Environment.Exit(1);
 
     var ts = int.Parse(File.ReadLines(optionsPath).First());
     //this.storage.Timestamp = DateTimeOffset.FromUnixTimeSeconds(ts).UtcDateTime;
@@ -48,41 +51,25 @@ public class StorageLoader
       DeserializeZip(archive.Entries);
     }
 
-
     Console.WriteLine("Statistics:");
-    Console.WriteLine("Accounts:{0}", Storage.Instance.GetAllAccounts().Count());
-    Console.WriteLine("Cities:{0}", Storage.Instance.citiesMap.Count);
-    Console.WriteLine("Countries:{0}", Storage.Instance.countriesMap.Count);
-    Console.WriteLine("First names:{0}", Storage.Instance.firstNamesMap.Count);
-    Console.WriteLine("Surnames:{0}", Storage.Instance.surnamesMap.Count);
-    Console.WriteLine("Interests:{0}", Storage.Instance.interestsMap.Count);
-    Console.WriteLine("Phone codes:{0}", Storage.Instance.GetAllAccounts().Select(x => x.GetPhoneCode()).Distinct().Count());
-    Console.WriteLine("Domains:{0}", Storage.Instance.emailMap.GetAllDomains().Count());
-    Console.WriteLine("Premium users:{0}", Storage.Instance.GetAllAccounts().Where(a => a.MatchIsPremium(ts)).Count());
-    Console.WriteLine("Has null premium:{0}", Storage.Instance.GetAllAccounts().Where(a => a.MatchHasPremium(false)).Count());
-    Console.WriteLine("Timestamp:{0}", Storage.Instance.timestamp);
-
-
-    /*int[] interests = new int[Storage.Instance.interestsMap.Count - 1];
-    foreach (var account in Storage.Instance.GetAllAccounts())
-    {
-      foreach (var id in account.GetInterestIds()) interests[id - 1]++;
-    }
-    Console.WriteLine("Average/Min/Max selectivity of interests: {0}/{1}/{2}", 
-    interests.Average(), 
-    interests.Min(), 
-    interests.Max());*/
-
+    Console.WriteLine("Accounts:{0}", this.storage.GetAllAccounts().Count());
+    Console.WriteLine("Cities:{0}", this.storage.citiesMap.Count);
+    Console.WriteLine("Countries:{0}", this.storage.countriesMap.Count);
+    Console.WriteLine("First names:{0}", this.storage.firstNamesMap.Count);
+    Console.WriteLine("Surnames:{0}", this.storage.surnamesMap.Count);
+    Console.WriteLine("Interests:{0}", this.storage.interestsMap.Count);
+    Console.WriteLine("Phone codes:{0}", this.storage.GetAllAccounts().Select(x => x.GetPhoneCode()).Distinct().Count());
+    Console.WriteLine("Domains:{0}", this.storage.emailMap.GetAllDomains().Count());
+    Console.WriteLine("Premium users:{0}", this.storage.GetAllAccounts().Where(a => a.MatchIsPremium(ts)).Count());
+    Console.WriteLine("Has null premium:{0}", this.storage.GetAllAccounts().Where(a => a.MatchHasPremium(false)).Count());
+    Console.WriteLine("Timestamp:{0}", this.storage.timestamp);
 
     System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
     GC.Collect(2, GCCollectionMode.Forced, true, true);
     GC.WaitForPendingFinalizers();
     GC.WaitForFullGCComplete();
 
-    Console.WriteLine("Started building index");
-    Storage.Instance.BuildIndex();
-    Console.WriteLine("Index ready");
-    Console.WriteLine(Storage.Instance.GetLikesStats());
+    this.storage.BuildIndex();
   }
 
   public class Accounts { public Account[] accounts; }

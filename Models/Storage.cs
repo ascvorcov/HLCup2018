@@ -21,7 +21,9 @@ namespace hlcup2018.Models
     public readonly SimpleQueryIndex<ushort> phoneCodeIndex = new SimpleQueryIndex<ushort>(x => x.GetPhoneCode(), x => x == 0 ? 0 : x-899);
     public readonly SimpleQueryIndex<char> sexIndex = new SimpleQueryIndex<char>(x => x.sex, x => x == 'm' ? 0 : 1);
     public readonly SimpleQueryIndex<byte> statusIndex = new SimpleQueryIndex<byte>(x => x.GetStatusId(), x => x);
-    private Dictionary<int, List<int>> likedByIndex = new Dictionary<int, List<int>>();
+    public readonly SimpleQueryIndex<byte> ageIndex = new SimpleQueryIndex<byte>(x => x.GetBirthYear(), x => x);
+    public readonly SimpleQueryIndex<byte> joinedIndex = new SimpleQueryIndex<byte>(x => x.GetJoinYear(), x => x);
+    public readonly MultiQueryIndex<Account.Like> likedByIndex = new MultiQueryIndex<Account.Like>(x => x.likes, x => x.id);
     public bool likesIndexDirty = false;
 
     private Dictionary<string, int> fieldSelectivity = new Dictionary<string, int>
@@ -70,35 +72,20 @@ namespace hlcup2018.Models
 
     public void BuildIndex()
     {
+      Console.WriteLine("started building index at " + DateTime.Now);
       var stor = Storage.Instance;
       //HPCsharp.Algorithm.SortRadix4()
-      this.likedByIndex.Clear();
-
+      
+      this.likedByIndex.BuildIndex(this.maxId+1);
       this.cityIndex.BuildIndex(stor.citiesMap.Count);
       this.countryIndex.BuildIndex(stor.countriesMap.Count);
       this.phoneCodeIndex.BuildIndex(101);
       this.statusIndex.BuildIndex(3);
       this.sexIndex.BuildIndex(2);
+      this.ageIndex.BuildIndex(57);
+      this.joinedIndex.BuildIndex(8);
 
-      foreach (var acc in GetAllAccounts())
-      {
-        if (acc.likes == null) continue;
-        foreach (var like in acc.likes)
-        {
-          if (!likedByIndex.TryGetValue(like.id, out var list))
-            likedByIndex[like.id] = list = new List<int>();
-          list.Add(acc.id);
-        }
-      }
-    }
-
-    public string GetLikesStats()
-    {
-      var sizes = this.likedByIndex.Select(x => x.Value.Count).ToList();
-
-      sizes.Sort();
-      var mean = sizes[sizes.Count / 2];
-      return string.Format("Average/Mean/Min/Max selectivity of likes: {0}/{1}/{2}/{3}", (int)sizes.Average(), mean, sizes.Min(), sizes.Max());
+      Console.WriteLine("index completed at " + DateTime.Now);
     }
 
     public IEnumerable<int> GetLikedBy(int id)
@@ -113,10 +100,7 @@ namespace hlcup2018.Models
         }
       }
 
-      if (!this.likedByIndex.TryGetValue(id, out var list))
-        return Enumerable.Empty<int>();
-
-      return list;
+      return likedByIndex.DirectGet(id);
     }
   }
 }

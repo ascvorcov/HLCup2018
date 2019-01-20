@@ -10,7 +10,7 @@ public class Program
     {
         var folder = args.Length > 0 ? args[0] : null;
         var loader = new StorageLoader(Storage.Instance);
-        loader.Load(folder == null ? "/data/" : @"C:\Old\MyProjects\core\hlcup2018\" + folder + @"\data");
+        loader.Load(folder == null ? "/tmp/data/" : @"C:\Old\MyProjects\core\hlcup2018\" + folder + @"\data");
         BuildWebHost(args).Run();
     }
 

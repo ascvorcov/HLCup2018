@@ -107,7 +107,9 @@ namespace hlcup2018.Models
     public byte GetCountryId() => countryId;
     public ushort GetPhoneCode() => phoneCode;
     public byte GetStatusId() => istatus;
-    
+    public byte GetBirthYear() => (byte)(DateTimeOffset.FromUnixTimeSeconds(this.birth).Year - 1949);
+    public byte GetJoinYear() => (byte)(DateTimeOffset.FromUnixTimeSeconds(this.joined).Year - 2010);
+
     public void AddLike(int otherId, int ts)
     {
       lock (this)
@@ -350,7 +352,7 @@ namespace hlcup2018.Models
               if (kvp.Value.Type != JTokenType.String) return null;
               phone = kvp.Value.Value<string>() ?? "";
               if (phone.Length == 0) break;
-              if (phone.Length != 13 || phone[1] != '(' || phone[5] != ')') return null;
+              if (phone.Length < 13 || phone[1] != '(' || phone[5] != ')') return null;
               break;
 
             case "sex":  // m/f
@@ -452,7 +454,7 @@ namespace hlcup2018.Models
       return ret;
     }
 
-    public static bool IsValidStatus(string status) => statuses.Contains(status);
+    public static int FindStatus(string status) => Array.IndexOf(statuses, status);
 
     public static Func<Account, ulong> CreateKeySelector(string[] keys)
     {

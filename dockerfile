@@ -1,11 +1,10 @@
-FROM microsoft/dotnet:sdk AS build-env
+FROM microsoft/dotnet:2.2-sdk AS build-env
 WORKDIR /app
 COPY . ./
 RUN dotnet publish -c Release -o out
-FROM microsoft/dotnet:runtime
+FROM microsoft/dotnet:2.2-aspnetcore-runtime
 WORKDIR /app
-COPY run.sh .
 COPY --from=build-env /app/out ./
-RUN ["chmod", "+x", "run.sh"]
-CMD ["./run.sh"]
 EXPOSE 80
+ENTRYPOINT ["dotnet", "hlcup2018.dll"]
+

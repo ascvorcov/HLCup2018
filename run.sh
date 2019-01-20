@@ -13,4 +13,4 @@ warmup () {
     curl -s -o /dev/null http://127.0.0.1/accounts/10000000
 }
 
-warmup & dotnet kestrel.dll
+warmup & hlcup2018.exe
