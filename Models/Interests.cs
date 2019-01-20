@@ -24,34 +24,50 @@ namespace hlcup2018.Models
 
     public bool Empty => this.bitmap1 == 0 && this.bitmap2 == 0;
 
-    public IEnumerable<int> GetIds()
+    public void CountInterests(int[] interests)
     {
-      if (bitmap1 != 0)
+      ulong bm = bitmap1;
+      for (int i = 0; i < 64 && bm != 0; ++i)
       {
-        for (int i = 0; i < 64; ++i)
-        {
-          var mask = 1ul << i;
-          if ((bitmap1 & mask) != 0)
-            yield return i + 1;
-        }
+        if ((bm & 1) != 0)
+          interests[i + 1]++;
+        bm >>= 1;
       }
 
-      if (bitmap2 != 0)
+      bm = bitmap2;
+      for (int i = 0; i < 64 && bm != 0; ++i)
       {
-        for (int i = 0; i < 64; ++i)
-        {
-          var mask = 1ul << i;
-          if ((bitmap2 & mask) != 0)
-            yield return i + 1 + 64;
-        }
+        if ((bm & 1) != 0)
+          interests[i + 1 + 64]++;
+        bm >>= 1;
+      }
+    }
+
+    public List<int> GetInterestIds()
+    {
+      var ret = new List<int>(10);
+      ulong bm = bitmap1;
+      for (int i = 0; i < 64 && bm != 0; ++i)
+      {
+        if ((bm & 1) != 0)
+          ret.Add(i + 1);
+        bm >>= 1;
       }
 
+      bm = bitmap2;
+      for (int i = 0; i < 64 && bm != 0; ++i)
+      {
+        if ((bm & 1) != 0)
+          ret.Add(i + 1 + 64);
+        bm >>= 1;
+      }
+      return ret;
     }
 
     public IEnumerable<string> Get()
     {
       var map = Storage.Instance.interestsMap;
-      foreach (var id in GetIds())
+      foreach (var id in GetInterestIds())
         yield return map.Get(id);
     }
 

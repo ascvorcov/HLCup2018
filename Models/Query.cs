@@ -186,10 +186,14 @@ namespace hlcup2018.Models
             break;
           case "interests_contains":
             var otherc = new Interests(value.Split(','));
-            ret.predicates.Add(a => a.MatchInterestsContains(otherc)); break;
+            ret.predicates.Add(a => a.MatchInterestsContains(otherc));
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.interestsIndex.GetByKey(otherc.GetInterestIds()));
+            break;
           case "interests_any":
             var othera = new Interests(value.Split(','));
-            ret.predicates.Add(a => a.MatchInterestsAny(othera)); break;
+            ret.predicates.Add(a => a.MatchInterestsAny(othera)); 
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.interestsIndex.GetByKey(othera.GetInterestIds()));
+            break;
           case "likes_contains":
             var hs = value.Split(',').Select(x => int.TryParse(x, out var id) ? id : -1).ToHashSet();
             if (hs.Contains(-1)) return null;

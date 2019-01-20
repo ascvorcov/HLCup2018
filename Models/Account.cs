@@ -23,11 +23,21 @@ namespace hlcup2018.Models
     private byte birthYear;
     private int _birth;
     private int _joined;
+    private List<Like> _likes;
 
     public int id;
     public char sex;
-    public List<Like> likes;
     public Premium premium;
+
+    public List<Like> likes
+    {
+      get => _likes;
+      set
+      {
+        _likes = value;
+        _likes.Sort(LikeComparer.Instance);
+      }
+    }
 
     public int birth
     {
@@ -137,9 +147,17 @@ namespace hlcup2018.Models
     {
       lock (this)
       {
-        if (this.likes == null)
-          this.likes = new List<Like>();
-        this.likes.Add(new Like { id = otherId, ts = ts });
+        if (this._likes == null)
+          this._likes = new List<Like>();
+        var like = new Like { id = otherId, ts = ts };
+        
+        var idx = this._likes.BinarySearch(like, LikeComparer.Instance);
+        if (idx >= 0)
+        {
+           if (this._likes[idx].ts == ts) return;
+           this._likes.Insert(idx, like);
+        }
+        else this._likes.Insert(~idx, like);
       }
     }
 
@@ -282,14 +300,27 @@ namespace hlcup2018.Models
 
     public bool MatchByLikes(ISet<int> ids)
     {
-      if (this.likes == null) return false;
-      return ids.Intersect(this.likes.Select(x => x.id)).Count() == ids.Count;
+      if (this._likes == null) return false;
+      int count = 0;
+      int prev = -1;
+      for (int i = 0; i < _likes.Count; ++i)
+      {
+        var id = _likes[i].id;
+        if (id == prev) continue;
+        if (ids.Contains(id)) 
+        {
+          count++;
+          if (count == ids.Count) return true;
+        }
+        prev = id;
+      }
+      return false;
     }
 
     public bool MatchByLike(int id)
     {
-      if (this.likes == null) return false;
-      return this.likes.Any(x => x.id == id);
+      if (this._likes == null) return false;
+      return this._likes.BinarySearch(new Like{id=id}, LikeComparer.Instance) >= 0;
     }
 
     public bool MatchIsPremium(int currentTs)
@@ -304,7 +335,9 @@ namespace hlcup2018.Models
       return hasPremium ? this.premium.start > 0 : this.premium.start == 0;
     }
 
-    public IEnumerable<int> GetInterestIds() => this.interestData.GetIds();
+    public IEnumerable<byte> GetInterestIds() => this.interestData.GetInterestIds().Select(x => (byte)x);
+
+    public void CountInterests(int[] ids) => this.interestData.CountInterests(ids);
 
     public void UnpackKey(string[] keys, string[] values)
     {
@@ -515,8 +548,8 @@ namespace hlcup2018.Models
     public IEnumerable<Account> Recommend(string country, string city)
     {
       var storage = Storage.Instance;
-      var countryId = country == null ? -2 : Storage.Instance.countriesMap.Find(country);
-      var cityId = city == null ? -2 : Storage.Instance.citiesMap.Find(city);
+      var countryId = country == null ? -2 : storage.countriesMap.Find(country);
+      var cityId = city == null ? -2 : storage.citiesMap.Find(city);
 
       IQueryIndex index = null;
       if (countryId == -1) 
@@ -568,7 +601,7 @@ namespace hlcup2018.Models
       {
         // first gather all users who liked the same users as we did
 
-        var usersWeLiked = this.likes;
+        var usersWeLiked = this._likes;
         if (usersWeLiked == null) 
           yield break;
 
@@ -592,11 +625,11 @@ namespace hlcup2018.Models
       IEnumerable<Account> GetCandidates(int id)
       {
         var account = storage.GetAccount(id);
-        if (account.likes == null) return Enumerable.Empty<Account>();
+        if (account._likes == null) return Enumerable.Empty<Account>();
         
-        return account.likes
+        return account._likes
           .Select(x => x.id)
-          .Except(this.likes.Select(x => x.id))
+          .Except(this._likes.Select(x => x.id))
           .OrderByDescending(x => x)
           .Select(storage.GetAccount);
       };
@@ -628,25 +661,8 @@ namespace hlcup2018.Models
 
     public double CalculateSimilarityIndex(Account other)
     {
-      if (other.likes == null || this.likes == null) return 0; // skip
-
-      double sim = 0;
-
-      var thisLookup = this.likes.ToLookup(k => k.id, v => v.ts);
-      var otherLookup = other.likes.ToLookup(k => k.id, v => v.ts);
-
-      var intersection = thisLookup.Select(x => x.Key).Intersect(otherLookup.Select(x => x.Key));
-
-      foreach (var commonId in intersection)
-      {
-        var avg1 = thisLookup[commonId].Average();
-        var avg2 = otherLookup[commonId].Average();
-        var diff = Math.Abs(avg1 - avg2);
-        sim += diff == 0 ? 1 : 1.0 / diff;
-      }
-
-      return sim;
+      if (other._likes == null || this._likes == null) return 0; // skip
+      return LikeComparer.Similarity(this._likes, other._likes);
     }
   }
-
 }

@@ -95,10 +95,7 @@ namespace hlcup2018.Models
       var grouping = new int[map.Count];
 
       foreach (var acc in Filter())
-      {
-        foreach (var id in acc.GetInterestIds())
-          grouping[id]++;
-      }
+        acc.CountInterests(grouping);
 
       IEnumerable<JObject> result;
       if (Order == 1)  // skip empty item
@@ -203,7 +200,9 @@ namespace hlcup2018.Models
             break;
           case "interests":
             var match = new Interests(values);
-            ret.predicates.Add(a => a.MatchInterestsAny(match));break;
+            ret.predicates.Add(a => a.MatchInterestsAny(match));
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.interestsIndex.GetByKey(match.GetInterestIds()));
+            break;
           case "likes":
             if (!int.TryParse(value, out var id)) return null;
             ret.predicates.Add(a => a.MatchByLike(id));
@@ -211,7 +210,9 @@ namespace hlcup2018.Models
             break;
           case "joined":
             if (!int.TryParse(value, out var j)) return null;
-            ret.predicates.Add(a => a.MatchJoinedByYear(j));break;
+            ret.predicates.Add(a => a.MatchJoinedByYear(j));
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.joinedIndex.WithKey((byte)(j - 2010)));
+            break;
           default:
             return null; // unknown query param
         }

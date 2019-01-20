@@ -23,6 +23,7 @@ namespace hlcup2018.Models
     public readonly SimpleQueryIndex<byte> statusIndex = new SimpleQueryIndex<byte>(x => x.GetStatusId(), x => x);
     public readonly SimpleQueryIndex<byte> ageIndex = new SimpleQueryIndex<byte>(x => x.GetBirthYear(), x => x);
     public readonly SimpleQueryIndex<byte> joinedIndex = new SimpleQueryIndex<byte>(x => x.GetJoinYear(), x => x);
+    public readonly MultiQueryIndex<byte> interestsIndex = new MultiQueryIndex<byte>(x => x.GetInterestIds(), x => x);
     public readonly MultiQueryIndex<Account.Like> likedByIndex = new MultiQueryIndex<Account.Like>(x => x.likes, x => x.id);
     public bool likesIndexDirty = false;
 
@@ -83,7 +84,8 @@ namespace hlcup2018.Models
       this.statusIndex.BuildIndex(3);
       this.sexIndex.BuildIndex(2);
       this.ageIndex.BuildIndex(57);
-      this.joinedIndex.BuildIndex(8);
+      this.joinedIndex.BuildIndex(9);
+      this.interestsIndex.BuildIndex(stor.interestsMap.Count);
 
       Console.WriteLine("index completed at " + DateTime.Now);
     }

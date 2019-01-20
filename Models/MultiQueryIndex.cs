@@ -42,13 +42,13 @@ namespace hlcup2018.Models
 
     public List<int> DirectGet(int key) => this.index[key];
 
-    public IQueryIndex GetByKey(IEnumerable<int> keys) => new KeyedQuery(this, keys);
+    public IQueryIndex GetByKey(ICollection<int> keys) => new KeyedQuery(this, keys);
 
     private class KeyedQuery : IQueryIndex
     {
       private readonly MultiQueryIndex<T> parent;
-      private readonly IEnumerable<int> keys;
-      public KeyedQuery(MultiQueryIndex<T> parent, IEnumerable<int> keys)
+      private readonly ICollection<int> keys;
+      public KeyedQuery(MultiQueryIndex<T> parent, ICollection<int> keys)
       {
         this.parent = parent;
         this.keys = keys;
@@ -59,8 +59,7 @@ namespace hlcup2018.Models
       public IEnumerable<Account> Select()
       {
         var stor = Storage.Instance;
-        foreach (var id in this.keys.SelectMany(k => this.parent.index[k]).Distinct())
-          yield return stor.GetAccount(id);
+        return this.keys.SelectMany(k => this.parent.index[k]).Distinct().OrderByDescending(x=>x).Select(stor.GetAccount);
       }
     }
   }
