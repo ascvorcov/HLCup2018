@@ -6,7 +6,7 @@ namespace hlcup2018.Models
   {
     public static readonly LikeComparer Instance = new LikeComparer();
 
-    public int Compare(Account.Like x, Account.Like y) => x.id < y.id ? -1 : x.id > y.id ? 1 : 0;
+    public int Compare(Account.Like x, Account.Like y) => x.id - y.id;
 
     // common for left and right
     public static double Similarity(List<Account.Like> left, List<Account.Like> right)

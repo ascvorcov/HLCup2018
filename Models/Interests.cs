@@ -90,13 +90,14 @@ namespace hlcup2018.Models
 
     private ulong NumberOfSetBits64(ulong i)
     {
-      if (i == 0) return 0;
+      return i == 0 ? 0 : (ulong)System.Runtime.Intrinsics.X86.Popcnt.PopCount(i);
+      /* if (i == 0) return 0;
 
       i = i - ((i >> 1) & 0x5555555555555555);
       i = (i & 0x3333333333333333) +
           ((i >> 2) & 0x3333333333333333);
       i = ((i + (i >> 4)) & 0x0F0F0F0F0F0F0F0F);
-      return (i*(0x0101010101010101))>>56;
+      return (i*(0x0101010101010101))>>56;*/
     }
   }
 

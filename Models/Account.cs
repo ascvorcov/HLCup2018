@@ -371,7 +371,7 @@ namespace hlcup2018.Models
       Premium premium = default(Premium);
       
       var storage = Storage.Instance;
-      try
+      //try
       {
         foreach (var kvp in o)
         {
@@ -461,20 +461,38 @@ namespace hlcup2018.Models
             case "likes": // id always exists, ts - ?
               if (kvp.Value.Type != JTokenType.Array) return null;
               var arr = (JArray)kvp.Value;
-              likes = arr.Select(t => t.ToObject<Like>()).ToList();
-              foreach (var like in likes)
-                if (!storage.HasAccount(like.id) || like.ts <= 0)
-                  return null;
+              likes = new List<Like>(5);
+              foreach (JObject item in arr)
+              {
+                var like = new Like();
+                foreach (var prop in item)
+                {
+                  switch(prop.Key)
+                  {
+                    case "id":
+                      if (prop.Value.Type != JTokenType.Integer) return null;
+                      like.id = prop.Value.Value<int>();
+                      break;
+                    case "ts":
+                      if (prop.Value.Type != JTokenType.Integer) return null;
+                      like.ts = prop.Value.Value<int>();
+                      break;
+                    default: return null;
+                  }
+                }
+                if (!storage.HasAccount(like.id) || like.ts <= 0) return null;
+                likes.Add(like);
+              }
               break;
 
             default: return null;
           }
         }
       }
-      catch
-      {
-        return null;
-      }
+      //catch
+      //{
+      //  return null;
+      //}
 
       if (existingId == 0 && id == 0) return null; // id not specified for new account
 
@@ -497,8 +515,7 @@ namespace hlcup2018.Models
         if (likes != null) ret.likes = likes;
         if (premium.start > 0) ret.premium = premium;
 
-        if (likes != null)
-          storage.likesIndexDirty = true;
+        storage.MarkIndexDirty();
       }
 
       return ret;
@@ -555,12 +572,12 @@ namespace hlcup2018.Models
       if (countryId == -1) 
         return Enumerable.Empty<Account>(); // invalid country or city requested
       else if (countryId >= 0)
-        index = storage.countryIndex.WithKey((byte)countryId);
+        index = storage.GetCountryIndex((byte)countryId);
 
       if (cityId == -1) 
         return Enumerable.Empty<Account>();
       else if (cityId >= 0)
-        index = storage.cityIndex.WithKey((ushort)cityId);
+        index = storage.GetCityIndex((ushort)cityId);
 
       return Filter().OrderByDescending(x => x.com).ThenBy(x => x.id).Select(x => storage.GetAccount(x.id));
 

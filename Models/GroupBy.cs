@@ -165,7 +165,7 @@ namespace hlcup2018.Models
           case "sex":
             if (value != "m" && value != "f") goto notfound;
             ret.predicates.Add(a => a.MatchBySex(value[0]));
-            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.sexIndex.WithKey(value[0]));
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetSexIndex(value[0]));
             break;
           case "email":
             ret.predicates.Add(a => a.MatchByEmailDomain(value));break;
@@ -173,7 +173,7 @@ namespace hlcup2018.Models
             var istat = Account.FindStatus(value);
             if (istat < 0) goto notfound;
             ret.predicates.Add(a => a.MatchByStatus(value));
-            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.statusIndex.WithKey((byte)istat));
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetStatusIndex((byte)istat));
             break;
           case "fname":
             ret.predicates.Add(a => a.MatchByFName(value));break;
@@ -185,33 +185,33 @@ namespace hlcup2018.Models
             ret.predicates.Add(a => a.MatchByCountry(value));
             var countryId = stor.countriesMap.Find(value);
             ret.emptyQuery = countryId == -1;
-            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.countryIndex.WithKey((byte)countryId));
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetCountryIndex((byte)countryId));
             break;
           case "city":
             ret.predicates.Add(a => a.MatchByCity(value));
             var cityId = stor.citiesMap.Find(value);
             ret.emptyQuery = cityId == -1;
-            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.cityIndex.WithKey((ushort)cityId));
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetCityIndex((ushort)cityId));
             break;
           case "birth":
             if (!int.TryParse(value, out var yr)) return null;
             ret.predicates.Add(a => a.MatchBirthByYear(yr));
-            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.ageIndex.WithKey((byte)(yr - 1949)));
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetAgeIndex((byte)(yr - 1949)));
             break;
           case "interests":
             var match = new Interests(values);
             ret.predicates.Add(a => a.MatchInterestsAny(match));
-            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.interestsIndex.GetByKey(match.GetInterestIds()));
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetInterestsIndex(match.GetInterestIds()));
             break;
           case "likes":
             if (!int.TryParse(value, out var id)) return null;
             ret.predicates.Add(a => a.MatchByLike(id));
-            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.likedByIndex.GetByKey(new[] { id }));
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetLikedByIndex(new[] { id }));
             break;
           case "joined":
             if (!int.TryParse(value, out var j)) return null;
             ret.predicates.Add(a => a.MatchJoinedByYear(j));
-            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.joinedIndex.WithKey((byte)(j - 2010)));
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetJoinedIndex((byte)(j - 2010)));
             break;
           default:
             return null; // unknown query param
