@@ -55,12 +55,12 @@ namespace hlcup2018.Controllers
             
             if (city == "" || country == "") return BadRequest();
             if (!int.TryParse(parsed.Get("limit"), out var limit) || limit <= 0) return BadRequest();
-            var query = acc.Recommend(country, city);
+            var query = acc.Recommend(country, city, limit);
             if (query == null) return BadRequest();
 
             return new QueryResult
             {
-                accounts = query.Take(limit).Select(x => 
+                accounts = query.Select(x => 
                 {
                     var ret = new JObject();
                     ret.Add("id", x.id);
@@ -96,12 +96,12 @@ namespace hlcup2018.Controllers
             if (city == "" || country == "") return BadRequest();
             if (!int.TryParse(parsed.Get("limit"), out var limit) || limit <= 0) return BadRequest();
             
-            var query = acc.Suggest(country, city);
+            var query = acc.Suggest(country, city, limit);
             if (query == null) return BadRequest();
             
             return new QueryResult
             {
-                accounts = query.Take(limit).Select(x => 
+                accounts = query.Select(x => 
                 {
                     var ret = new JObject();
                     ret.Add("id", x.id);

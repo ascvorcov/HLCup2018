@@ -562,7 +562,7 @@ namespace hlcup2018.Models
       ulong Key(ulong a, ulong b) => a << 32 | b;
     }
 
-    public IEnumerable<Account> Recommend(string country, string city)
+    public IEnumerable<Account> Recommend(string country, string city, int limit)
     {
       var storage = Storage.Instance;
       var countryId = country == null ? -2 : storage.countriesMap.Find(country);
@@ -579,7 +579,7 @@ namespace hlcup2018.Models
       else if (cityId >= 0)
         index = storage.GetCityIndex((ushort)cityId);
 
-      return Filter().OrderByDescending(x => x.com).ThenBy(x => x.id).Select(x => storage.GetAccount(x.id));
+      return Filter().OrderByDescending(x => x.com).ThenBy(x => x.id).Select(x => storage.GetAccount(x.id)).Take(limit);
 
       IEnumerable<(int id,ulong com)> Filter()
       {
@@ -601,7 +601,7 @@ namespace hlcup2018.Models
 
     }
 
-    public IEnumerable<Account> Suggest(string country, string city)
+    public IEnumerable<Account> Suggest(string country, string city, int limit)
     {
       var storage = Storage.Instance;
       var countryId = country == null ? -2 : storage.countriesMap.Find(country);
@@ -610,7 +610,12 @@ namespace hlcup2018.Models
       if (countryId == -1)return Enumerable.Empty<Account>(); // invalid country or city requested
       if (cityId == -1) return Enumerable.Empty<Account>();
 
-      return Filter().OrderByDescending(x => x.sim).SelectMany(x => GetCandidates(x.id));
+      return Filter().OrderByDescending(x => x.sim).SelectMany(x => GetCandidates(x.id)).Select(storage.GetAccount).Take(limit);
+
+      /*return Filter().OrderByDescending(x => x.sim)
+      
+      
+      .SelectMany(x => GetCandidates(x.id)).Take(limit);*/
 
       // find all users with same gender (and same location, if specified), 
       // return id and similarity index
@@ -639,16 +644,12 @@ namespace hlcup2018.Models
       }
 
       // find all candidate accounts liked by selected, which were not liked yet by current account
-      IEnumerable<Account> GetCandidates(int id)
+      IEnumerable<int> GetCandidates(int id)
       {
         var account = storage.GetAccount(id);
-        if (account._likes == null) return Enumerable.Empty<Account>();
-        
-        return account._likes
-          .Select(x => x.id)
-          .Except(this._likes.Select(x => x.id))
-          .OrderByDescending(x => x)
-          .Select(storage.GetAccount);
+        if (account._likes == null) return Storage.empty;
+
+        return LikeComparer.Except(account._likes, this._likes).Reverse();
       };
 
     }

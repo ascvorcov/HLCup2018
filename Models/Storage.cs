@@ -9,6 +9,8 @@ namespace hlcup2018.Models
   {
     public static readonly Storage Instance = new Storage();
     
+    public static int[] empty = new int[0];
+    
     public readonly ArrayMap interestsMap = new ArrayMap();
     public readonly ArrayMap citiesMap = new ArrayMap();
     public readonly ArrayMap countriesMap = new ArrayMap();

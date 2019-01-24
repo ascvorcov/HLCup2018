@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace hlcup2018.Models
@@ -34,6 +35,27 @@ namespace hlcup2018.Models
         }
       }
       return sim;
+    }
+
+    // likesLeft except likesRight
+    public static IEnumerable<int> Except(List<Account.Like> likesLeft, List<Account.Like> likesRight)
+    {
+      int idx = 0;
+      int last = likesRight.Count - 1;
+      int prevId = -1;
+      for (int i = 0; i < likesLeft.Count; ++i)
+      {
+        var left = likesLeft[i];
+        if (left.id == prevId) continue; // make distinct
+        while (idx != last && likesRight[idx].id < left.id)
+          idx++;
+        
+        if (likesRight[idx].id == left.id)
+          continue;
+        else
+          yield return left.id;
+        prevId = left.id;
+      }
     }
 
     private static double AverageTs(ref int index, List<Account.Like> src)
