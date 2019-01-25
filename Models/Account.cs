@@ -579,9 +579,11 @@ namespace hlcup2018.Models
       else if (cityId >= 0)
         index = storage.GetCityIndex((ushort)cityId);
 
-      return Filter().OrderByDescending(x => x.com).ThenBy(x => x.id).Select(x => storage.GetAccount(x.id)).Take(limit);
+      var topN = Filter().TakeTopN(limit, Comparer.Instance);
+      
+      return topN.Select(x => storage.GetAccount(x.id));
 
-      IEnumerable<(int id,ulong com)> Filter()
+      IEnumerable<Compatibility> Filter()
       {
         var accounts = index == null ? storage.GetAllAccounts() : index.Select();
         foreach (var acc in accounts)
@@ -595,7 +597,7 @@ namespace hlcup2018.Models
           var comIndex = CalculateCompatibilityIndex(acc, premium);
           if (comIndex == 0) continue; // skip ?
 
-          yield return (acc.id, comIndex);
+          yield return new Compatibility(acc.id, comIndex);
         }
       }
 
@@ -610,16 +612,13 @@ namespace hlcup2018.Models
       if (countryId == -1)return Enumerable.Empty<Account>(); // invalid country or city requested
       if (cityId == -1) return Enumerable.Empty<Account>();
 
-      return Filter().OrderByDescending(x => x.sim).SelectMany(x => GetCandidates(x.id)).Select(storage.GetAccount).Take(limit);
-
-      /*return Filter().OrderByDescending(x => x.sim)
+      var top100 = Filter().TakeTopN(100, Comparer.Instance);
       
-      
-      .SelectMany(x => GetCandidates(x.id)).Take(limit);*/
+      return top100.SelectMany(x => GetCandidates(x.id)).Take(limit).Select(storage.GetAccount);
 
       // find all users with same gender (and same location, if specified), 
       // return id and similarity index
-      IEnumerable<(int id,double sim)> Filter()
+      IEnumerable<Similarity> Filter()
       {
         // first gather all users who liked the same users as we did
 
@@ -639,7 +638,7 @@ namespace hlcup2018.Models
           var simIndex = CalculateSimilarityIndex(acc);
           if (simIndex == 0) continue; // skip ?
 
-          yield return (acc.id, simIndex);
+          yield return new Similarity(acc.id, simIndex);
         }
       }
 
@@ -652,6 +651,47 @@ namespace hlcup2018.Models
         return LikeComparer.Except(account._likes, this._likes).Reverse();
       };
 
+    }
+
+    public class Comparer : IComparer<Compatibility>, IComparer<Similarity>
+    {
+      private static Comparer<int> comparer = Comparer<int>.Default;
+      public static readonly Comparer Instance = new Comparer();
+      int IComparer<Compatibility>.Compare(Compatibility x, Compatibility y)
+      {
+        if (x.compatibility < y.compatibility) return -1;
+        else if (x.compatibility > y.compatibility) return 1;
+        else return comparer.Compare(x.id, y.id);
+      }
+
+      int IComparer<Similarity>.Compare(Similarity x, Similarity y)
+      {
+        if (x.similarity < y.similarity) return -1;
+        else if (x.similarity > y.similarity) return 1;
+        else return 0;
+      }
+    }
+
+    public struct Compatibility
+    {
+      public ulong compatibility;
+      public int id;
+      public Compatibility(int id, ulong c)
+      {
+        this.id = id;
+        this.compatibility = c;
+      }
+    }
+
+    public struct Similarity
+    {
+      public double similarity;
+      public int id;
+      public Similarity(int id, double s)
+      {
+        this.id = id;
+        this.similarity = s;
+      }
     }
 
     public ulong CalculateCompatibilityIndex(Account other, bool premium)

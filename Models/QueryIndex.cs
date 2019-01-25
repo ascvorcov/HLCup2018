@@ -52,10 +52,16 @@ namespace hlcup2018.Models
         selected.Add(this.index[this.indexSelector(k)]);
 
       IEnumerable<int> result;
-      if (selected.Count == 1)
-        result = selected[0];
-      else
-        result = selected.SelectMany(x => x).OrderByDescending(x => x); // todo: merge sort for 2,3 arrays
+      switch (selected.Count)
+      {
+        case 1: result = selected[0]; break;
+        case 2: result = MoreLinq.Extensions.SortedMergeExtension.SortedMerge(selected[0], MoreLinq.OrderByDirection.Descending, selected[1]); break;
+        case 3: result = MoreLinq.Extensions.SortedMergeExtension.SortedMerge(selected[0], MoreLinq.OrderByDirection.Descending, selected[1], selected[2]); break;
+        case 4: result = MoreLinq.Extensions.SortedMergeExtension.SortedMerge(selected[0], MoreLinq.OrderByDirection.Descending, selected[1], selected[2], selected[3]); break;
+        case 5: result = MoreLinq.Extensions.SortedMergeExtension.SortedMerge(selected[0], MoreLinq.OrderByDirection.Descending, selected[1], selected[2], selected[3], selected[4]); break;
+        default:result = MoreLinq.Extensions.SortedMergeExtension.SortedMerge(selected[0], MoreLinq.OrderByDirection.Descending, selected.Skip(1).ToArray()); break;
+      }
+      //selected.SelectMany(x => x).OrderByDescending(x => x);
 
       foreach (var id in result)
         yield return instance.GetAccount(id);

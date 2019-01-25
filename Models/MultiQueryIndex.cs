@@ -59,7 +59,36 @@ namespace hlcup2018.Models
       public IEnumerable<Account> Select()
       {
         var stor = Storage.Instance;
-        return this.keys.SelectMany(k => this.parent.index[k]).Distinct().OrderByDescending(x=>x).Select(stor.GetAccount);
+        switch (this.keys.Count)
+        {
+          case 1:
+          {
+            var list = this.parent.index[this.keys.First()];
+            int prev = -1;
+            foreach(var id in list)
+            {
+              if (id == prev) continue; // distinct
+              prev = id;
+              yield return stor.GetAccount(id);
+            }
+            break;
+          }
+          default:
+          {
+            var head = this.parent.index[this.keys.First()];
+            var tail = this.keys.Skip(1).Select(k => this.parent.index[k]).ToArray();
+            var merged = MoreLinq.Extensions.SortedMergeExtension.SortedMerge(head, MoreLinq.OrderByDirection.Descending, tail);
+            int prev = -1;
+            foreach (var id in merged)
+            {
+              if (id == prev) continue; // distinct
+              prev = id;
+              yield return stor.GetAccount(id);
+            }
+            break;
+          }
+        }
+        //return this.keys.SelectMany(k => this.parent.index[k]).Distinct().OrderByDescending(x=>x).Select(stor.GetAccount);
       }
     }
   }
