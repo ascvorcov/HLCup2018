@@ -35,7 +35,7 @@ namespace hlcup2018.Models
       set
       {
         _likes = value;
-        _likes.Sort(LikeComparer.Instance);
+        _likes?.Sort(LikeComparer.Instance);
       }
     }
 
@@ -116,7 +116,7 @@ namespace hlcup2018.Models
     public string[] interests
     {
       get => interestData.Get().ToArray();
-      set => interestData = new Interests(value);
+      set => interestData = value == null ? default(Interests) : new Interests(value);
     }
 
     public struct Premium
@@ -143,7 +143,7 @@ namespace hlcup2018.Models
     public byte GetBirthYear() => birthYear;
     public byte GetJoinYear() => joinedYear;
 
-    public void AddLike(int otherId, int ts)
+    public Like AddLike(int otherId, int ts)
     {
       lock (this)
       {
@@ -154,10 +154,11 @@ namespace hlcup2018.Models
         var idx = this._likes.BinarySearch(like, LikeComparer.Instance);
         if (idx >= 0)
         {
-           if (this._likes[idx].ts == ts) return;
+           if (this._likes[idx].ts == ts) return like;
            this._likes.Insert(idx, like);
         }
         else this._likes.Insert(~idx, like);
+        return like;
       }
     }
 
@@ -171,9 +172,9 @@ namespace hlcup2018.Models
       return this.email == e;
     }
 
-    public bool MatchByEmailDomain(string domain)
+    public bool MatchByEmailDomain(int domainId)
     {
-      return this.email.EndsWith("@" + domain);
+      return (this.emailId >> 24) == domainId;
     }
 
     public bool EmailLessThan(string eml)
@@ -186,19 +187,22 @@ namespace hlcup2018.Models
       return string.CompareOrdinal(this.email, eml) > 0;
     }
 
-    public bool MatchByStatus(string status)
+    public bool MatchByStatus(int istat)
     {
-      return this.status == status;
+      return this.istatus == istat;
     }
 
-    public bool MatchByStatusNot(string status)
+    public bool MatchByStatusNot(int istat)
     {
-      return this.status != status;
+      return this.istatus != istat;
     }
 
-    public bool MatchByFName(params string[] name)
+    public bool MatchByFName(params byte[] names)
     {
-      return name.Any(x => x == this.fname);
+      foreach (var n in names)
+        if (n == this.firstNameId)
+          return true;
+      return false;
     }
 
     public bool MatchHasFName(bool hasFName)
@@ -208,9 +212,9 @@ namespace hlcup2018.Models
       return hasFName ? this.firstNameId > 0 : this.firstNameId == 0;
     }
 
-    public bool MatchBySName(string name)
+    public bool MatchBySName(ushort sname)
     {
-      return this.sname == name;
+      return this.surnameId == sname;
     }
     
     public bool MatchSNameStarts(string name)
@@ -242,9 +246,9 @@ namespace hlcup2018.Models
       return hasPhone ? this.phoneCode > 0 : this.phoneCode == 0;
     }
 
-    public bool MatchByCountry(string cnt)
+    public bool MatchByCountry(byte country)
     {
-      return this.country == cnt;
+      return this.countryId == country;
     }
 
     public bool MatchHasCountry(bool hasCountry)
@@ -254,9 +258,12 @@ namespace hlcup2018.Models
       return hasCountry ? this.countryId > 0 : this.countryId == 0;
     }
 
-    public bool MatchByCity(params string[] cities)
+    public bool MatchByCity(params ushort[] cities)
     {
-      return cities.Any(c => c == this.city);
+      foreach (var c in cities)
+        if (c == this.cityId)
+          return true;
+      return false;
     }
 
     public bool MatchHasCity(bool hasCity)
@@ -334,6 +341,8 @@ namespace hlcup2018.Models
       // if hasPremium = false, finds all records with empty premium info.
       return hasPremium ? this.premium.start > 0 : this.premium.start == 0;
     }
+
+    public bool HasInterests => !this.interestData.Empty;
 
     public IEnumerable<byte> GetInterestIds() => this.interestData.GetInterestIds().Select(x => (byte)x);
 
@@ -494,28 +503,81 @@ namespace hlcup2018.Models
       //  return null;
       //}
 
-      if (existingId == 0 && id == 0) return null; // id not specified for new account
+      bool isNew = (existingId == 0);
+      if (isNew && id == 0) return null; // id not specified for new account
 
-      var ret = existingId == 0 ? new Account() : storage.GetAccount(existingId);
+      var ret = isNew ? new Account() : storage.GetAccount(existingId);
       
       lock (ret)
       {
         if (id > 0) ret.id = id;
         if (email != null) ret.email = email;
-        if (birth > 0) ret.birth = birth;
-        if (status != null) ret.status = status;
         if (fname != null) ret.fname = fname;
         if (sname != null) ret.sname = sname;
-        if (city != null) ret.city = city;
-        if (country != null) ret.country = country;
-        if (phone != null) ret.phone = phone;
-        if (sex != null) ret.sex = sex[0];
-        if (joined > 0) ret.joined = joined;
-        if (interests != null) ret.interests = interests;
-        if (likes != null) ret.likes = likes;
         if (premium.start > 0) ret.premium = premium;
 
-        storage.MarkIndexDirty();
+        if (birth > 0 || isNew)
+        {
+          var old = ret.GetBirthYear();
+          ret.birth = birth;
+          storage.UpdateAgeIndex(old, ret);
+        }
+
+        if (status != null || isNew) 
+        {
+          var old = ret.GetStatusId();
+          ret.status = status;
+          storage.UpdateStatusIndex(old, ret);
+        }
+
+        if (city != null || isNew) 
+        {
+          var old = ret.GetCityId();
+          ret.city = city;
+          storage.UpdateCityIndex(old, ret);
+        }
+
+        if (country != null || isNew)
+        {
+          var old = ret.GetCountryId();
+          ret.country = country;
+          storage.UpdateCountryIndex(old, ret);
+        }
+
+        if (phone != null || isNew) 
+        {
+          var old = ret.GetPhoneCode();
+          ret.phone = phone;
+          storage.UpdatePhoneCodeIndex(old, ret);
+        }
+
+        if (sex != null || isNew) 
+        {
+          var old = ret.sex;
+          ret.sex = sex[0];
+          storage.UpdateSexIndex(old, ret);
+        }
+
+        if (joined > 0 || isNew)
+        {
+          var old = ret.GetJoinYear();
+          ret.joined = joined;
+          storage.UpdateJoinedIndex(old, ret);
+        }
+
+        if (interests != null || isNew)
+        {
+          var old = ret.HasInterests ? ret.GetInterestIds() : null;
+          ret.interests = interests;
+          storage.UpdateInterestsIndex(old, ret);
+        }
+
+        if (likes != null || isNew) 
+        {
+          var old = ret.likes;
+          ret.likes = likes;
+          storage.UpdateLikesIndex(old, ret);
+        }
       }
 
       return ret;

@@ -6,6 +6,8 @@ namespace hlcup2018.Models
 {
   public class MultiQueryIndex<T>
   {
+    private static readonly ReverseComparer<int> reverseComparer = ReverseComparer<int>.Instance;
+
     private readonly List<List<int>> index = new List<List<int>>();
     private readonly Func<Account, IEnumerable<T>> valueSelector;
     private readonly Func<T, int> indexSelector;
@@ -17,11 +19,53 @@ namespace hlcup2018.Models
       this.indexSelector = indexSelector;
     }
 
+    public void UpdateIndex(IEnumerable<T> old, Account updated)
+    {
+      var id = updated.id;
+      if (old != null)
+      {
+        foreach (var value in old)
+        {
+          var list = index[this.indexSelector(value)];
+          int start = list.BinarySearch(id, reverseComparer);
+          if (start < 0) continue;
+          int end = start;
+          while (start > 0 && list[start - 1] == id) start--;
+          while (end < list.Count-1 && list[end + 1] == id) end++;
+          list.RemoveRange(start, end - start + 1);
+        }
+      }
+
+      var values = this.valueSelector(updated);
+      if (values == null) return;
+      foreach (var value in values)
+      {
+        AddNewRecord(value, id);
+      }
+    }
+
+    public void AddNewRecord(T value, int id)
+    {
+        var selectedIndex = this.indexSelector(value);
+        while (selectedIndex >= this.index.Count)
+          this.index.Add(new List<int>());
+
+        var list = this.index[selectedIndex];
+        var idx = list.BinarySearch(id, reverseComparer);
+        if (idx < 0)
+          list.Insert(~idx, id);
+    }
+
+    public void Resize(int newSize)
+    {
+      while (this.index.Count < newSize)
+        this.index.Add(new List<int>());
+    }
+
     public void BuildIndex(int expectedSize)
     {
       index.Clear();
-      for (int i = 0; i < expectedSize; ++i)
-        index.Add(new List<int>());
+      this.Resize(expectedSize);
 
       foreach (var acc in Storage.Instance.GetAllAccountsByDescendingId())
       {

@@ -34,6 +34,8 @@ namespace hlcup2018.Models
 
     public string GetDomain(int id) => domainMap.Get(id >> 24);
 
+    public int FindDomain(string s) => domainMap.Find(s);
+
     public string GetAccount(int id) => accountMap.Get(id & 0x00FFFFFF);
 
     public IEnumerable<string> GetAllDomains() => domainMap.GetAll();

@@ -29,24 +29,9 @@ namespace hlcup2018.Models
     private readonly MultiQueryIndex<byte> interestsIndex = new MultiQueryIndex<byte>(x => x.GetInterestIds(), x => x);
     private readonly MultiQueryIndex<Account.Like> likedByIndex = new MultiQueryIndex<Account.Like>(x => x.likes, x => x.id);
     
-    private readonly Task indexingTask;
-    private volatile bool indexDirty = false;
-    private long rebuildTimestamp = 0;
     public int timestamp;
     private int maxId;
-    private object sync = new object();
     
-    public Storage()
-    {
-      indexingTask = IndexMonitor();
-    }
-
-    public void MarkIndexDirty()
-    {
-      System.Threading.Interlocked.Exchange(ref rebuildTimestamp, DateTime.Now.AddMilliseconds(500).Ticks);
-      indexDirty = true;
-    }
-
     public bool HasAccount(int id) => id >= 0 && id < this.accounts.Length && this.accounts[id] != null;
     public Account GetAccount(int id) => this.accounts[id];
     public void AddAccount(Account a)
@@ -74,56 +59,122 @@ namespace hlcup2018.Models
 
     public IQueryIndex GetCityIndex(params ushort[] keys)
     {
-      lock (this.sync)
+      lock (this.cityIndex)
         return this.cityIndex.WithKey(keys);
     }
 
     public IQueryIndex GetCountryIndex(params byte[] keys)
     {
-      lock (this.sync)
+      lock (this.countryIndex)
         return this.countryIndex.WithKey(keys);
     }
 
     public IQueryIndex GetPhoneCodeIndex(params ushort[] keys)
     {
-      lock (this.sync)
+      lock (this.phoneCodeIndex)
         return this.phoneCodeIndex.WithKey(keys);
     }
 
     public IQueryIndex GetStatusIndex(params byte[] keys)
     {
-      lock (this.sync)
+      lock (this.statusIndex)
         return this.statusIndex.WithKey(keys);
     }
 
     public IQueryIndex GetSexIndex(char sex)
     {
-      lock (this.sync)
+      lock (this.sexIndex)
         return this.sexIndex.WithKey(sex);
     }
 
     public IQueryIndex GetAgeIndex(params byte[] keys)
     {
-      lock (this.sync)
+      lock (this.ageIndex)
         return this.ageIndex.WithKey(keys);
     }
 
     public IQueryIndex GetJoinedIndex(params byte[] keys)
     {
-      lock (this.sync)
+      lock (this.joinedIndex)
         return this.joinedIndex.WithKey(keys);
     }
 
     public IQueryIndex GetInterestsIndex(ICollection<int> keys)
     {
-      lock (this.sync)
+      lock (this.interestsIndex)
         return this.interestsIndex.GetByKey(keys);
     }
 
     public IQueryIndex GetLikedByIndex(ICollection<int> keys)
     {
-      lock (this.sync)
+      lock (this.likedByIndex)
         return this.likedByIndex.GetByKey(keys);
+    }
+
+    public void UpdateCountryIndex(byte old, Account acc)
+    {
+      lock (this.countryIndex)
+        this.countryIndex.UpdateIndex(old, acc);
+    }
+
+    public void UpdateCityIndex(ushort old, Account acc)
+    {
+      lock (this.cityIndex)
+        this.cityIndex.UpdateIndex(old, acc);
+    }
+
+    public void UpdatePhoneCodeIndex(ushort old, Account acc)
+    {
+      lock (this.phoneCodeIndex)
+        this.phoneCodeIndex.UpdateIndex(old, acc);
+    }
+
+    public void UpdateSexIndex(char old, Account acc)
+    {
+      lock (this.sexIndex)
+        this.sexIndex.UpdateIndex(old, acc);
+    }
+
+    public void UpdateStatusIndex(byte old, Account acc)
+    {
+      lock (this.statusIndex)
+        this.statusIndex.UpdateIndex(old, acc);
+    }
+
+    public void UpdateAgeIndex(byte old, Account acc)
+    {
+      lock (this.ageIndex)
+        this.ageIndex.UpdateIndex(old, acc);
+    }
+
+    public void UpdateJoinedIndex(byte old, Account acc)
+    {
+      lock (this.joinedIndex)
+        this.joinedIndex.UpdateIndex(old, acc);
+    }
+
+    public void UpdateInterestsIndex(IEnumerable<byte> old, Account acc)
+    {
+      lock (this.interestsIndex)
+        this.interestsIndex.UpdateIndex(old, acc);
+    }
+
+    public void UpdateLikesIndex(ICollection<Account.Like> old, Account acc)
+    {
+      lock (this.likedByIndex)
+        this.likedByIndex.UpdateIndex(old, acc);
+    }
+
+    public void UpdateLikesIndexAddNewLike(Account.Like newLike, int id)
+    {
+      lock (this.likedByIndex)
+        this.likedByIndex.AddNewRecord(newLike, id);
+    }
+
+    public void UpdateLikesIndexResize()
+    {
+      lock (this.likedByIndex)
+        this.likedByIndex.Resize(maxId + 1);
     }
 
     public void BuildIndex()
@@ -132,42 +183,23 @@ namespace hlcup2018.Models
       var stor = Storage.Instance;
       //HPCsharp.Algorithm.SortRadix4()
       
-      lock(this.sync)
-      {
-        this.likedByIndex.BuildIndex(this.maxId+1);
-        this.cityIndex.BuildIndex(stor.citiesMap.Count);
-        this.countryIndex.BuildIndex(stor.countriesMap.Count);
-        this.phoneCodeIndex.BuildIndex(101);
-        this.statusIndex.BuildIndex(3);
-        this.sexIndex.BuildIndex(2);
-        this.ageIndex.BuildIndex(57);
-        this.joinedIndex.BuildIndex(9);
-        this.interestsIndex.BuildIndex(stor.interestsMap.Count);
-      }
+      this.likedByIndex.BuildIndex(this.maxId+1);
+      this.cityIndex.BuildIndex(stor.citiesMap.Count);
+      this.countryIndex.BuildIndex(stor.countriesMap.Count);
+      this.phoneCodeIndex.BuildIndex(101);
+      this.statusIndex.BuildIndex(3);
+      this.sexIndex.BuildIndex(2);
+      this.ageIndex.BuildIndex(57);
+      this.joinedIndex.BuildIndex(9);
+      this.interestsIndex.BuildIndex(stor.interestsMap.Count);
 
       Console.WriteLine("index completed at " + DateTime.Now);
     }
 
     public List<int> GetLikedBy(int id)
     {
-      lock (this.sync)
-        return likedByIndex.DirectGet(id);
-    }
-
-    private async Task IndexMonitor()
-    {
-      while (true)
-      {
-        await Task.Delay(100);
-        if (!indexDirty) continue;
-
-        var ts = System.Threading.Interlocked.Read(ref rebuildTimestamp);
-        if (ts > DateTime.Now.Ticks) continue;
-
-        BuildIndex();
-        indexDirty = false;
-        System.Threading.Interlocked.Exchange(ref rebuildTimestamp, 0);
-      }
+      lock (this.likedByIndex)
+        return this.likedByIndex.DirectGet(id);
     }
   }
 }

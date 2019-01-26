@@ -83,37 +83,42 @@ namespace hlcup2018.Models
             ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetSexIndex(value[0]));
             break;
           case "email_domain": // dont add email to converters, always included
-            ret.predicates.Add(a => a.MatchByEmailDomain(value)); break;
+            var dom = stor.emailMap.FindDomain(value);
+            ret.predicates.Add(a => a.MatchByEmailDomain(dom)); break;
           case "email_lt":
             ret.predicates.Add(a => a.EmailLessThan(value)); break;
           case "email_gt":
             ret.predicates.Add(a => a.EmailGreaterThan(value)); break;
           case "status_eq":
-            ret.converters.Add((j,a) => j.Add("status", a.status));
-            ret.predicates.Add(a => a.MatchByStatus(value));
             var istat = (byte)(value[0] == 'с' ? 2 : value[0] == 'в' ? 1 : 0);
+            ret.converters.Add((j,a) => j.Add("status", a.status));
+            ret.predicates.Add(a => a.MatchByStatus(istat));
             ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetStatusIndex(istat));
             break;
           case "status_neq":
+            var istat2 = (byte)(value[0] == 'с' ? 2 : value[0] == 'в' ? 1 : 0);
+            var istat2arr = (value[0] == 'с' ? new byte[]{0,1} : value[0] == 'в' ? new byte[]{0,2} : new byte[]{1,2});
             ret.converters.Add((j,a) => j.Add("status", a.status));
-            ret.predicates.Add(a => a.MatchByStatusNot(value)); 
-            var istat2 = (value[0] == 'с' ? new byte[]{0,1} : value[0] == 'в' ? new byte[]{0,2} : new byte[]{1,2});
-            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetStatusIndex(istat2));
+            ret.predicates.Add(a => a.MatchByStatusNot(istat2)); 
+            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetStatusIndex(istat2arr));
             break;
           case "fname_eq":
+            var fid = stor.firstNamesMap.Find(value);
             ret.converters.Add((j,a) => j.Add("fname", a.fname));
-            ret.predicates.Add(a => a.MatchByFName(value)); break;
+            ret.predicates.Add(a => a.MatchByFName((byte)fid)); break;
           case "fname_any":
-            var fnameMatch = value.Split(',');
+            var fnameMatch = value.Split(',').Select(x => (byte)stor.firstNamesMap.Find(x)).ToArray();
             ret.converters.Add((j,a) => j.Add("fname", a.fname));
             ret.predicates.Add(a => a.MatchByFName(fnameMatch)); break;
           case "fname_null":
-            if (value != "0" && value != "1") return null;
-            if (value == "0") ret.converters.Add((j,a) => j.Add("fname", a.fname));
-            ret.predicates.Add(a => a.MatchHasFName(value == "0")); break;
+            bool z = value == "0";
+            if (!z && value != "1") return null;
+            if (z) ret.converters.Add((j,a) => j.Add("fname", a.fname));
+            ret.predicates.Add(a => a.MatchHasFName(z)); break;
           case "sname_eq":
+            var sid = stor.surnamesMap.Find(value);
             ret.converters.Add((j,a) => j.Add("sname", a.sname));
-            ret.predicates.Add(a => a.MatchBySName(value)); break;
+            ret.predicates.Add(a => a.MatchBySName((ushort)sid)); break;
           case "sname_starts":
             ret.converters.Add((j,a) => j.Add("sname", a.sname));
             ret.predicates.Add(a => a.MatchSNameStarts(value)); break;
@@ -134,9 +139,9 @@ namespace hlcup2018.Models
             ret.predicates.Add(a => a.MatchHasPhone(value == "0")); 
             break;
           case "country_eq":
-            ret.converters.Add((j,a) => j.Add("country", a.country));
-            ret.predicates.Add(a => a.MatchByCountry(value));
             var countryId = stor.countriesMap.Find(value);
+            ret.converters.Add((j,a) => j.Add("country", a.country));
+            ret.predicates.Add(a => a.MatchByCountry((byte)countryId));
             ret.emptyQuery = countryId == -1;
             ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetCountryIndex((byte)countryId));
             break;
@@ -147,16 +152,15 @@ namespace hlcup2018.Models
             ret.predicates.Add(a => a.MatchHasCountry(value == "0"));
             break;
           case "city_eq":
-            ret.converters.Add((j,a) => j.Add("city", a.city));
-            ret.predicates.Add(a => a.MatchByCity(value));
             var cityId = stor.citiesMap.Find(value);
+            ret.converters.Add((j,a) => j.Add("city", a.city));
+            ret.predicates.Add(a => a.MatchByCity((ushort)cityId));
             ret.emptyQuery = cityId == -1;
             ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetCityIndex((ushort)cityId));
             break;
           case "city_any":
             var lookupCity = value.Split(',');
             ret.converters.Add((j,a) => j.Add("city", a.city));
-            ret.predicates.Add(a => a.MatchByCity(lookupCity));
             var cityIds = new List<ushort>();
             foreach(var city in lookupCity)
             {
@@ -164,6 +168,7 @@ namespace hlcup2018.Models
               if (cityId != -1)
                 cityIds.Add((ushort)cityId);
             }
+            ret.predicates.Add(a => a.MatchByCity(cityIds.ToArray()));
             ret.emptyQuery = cityIds.Count == 0;
             ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetCityIndex(cityIds.ToArray()));
             break;

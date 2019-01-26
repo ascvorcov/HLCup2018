@@ -212,28 +212,33 @@ namespace hlcup2018.Models
             ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetSexIndex(value[0]));
             break;
           case "email":
-            ret.predicates.Add(a => a.MatchByEmailDomain(value));break;
+            var dom = stor.emailMap.FindDomain(value);
+            ret.predicates.Add(a => a.MatchByEmailDomain(dom));break;
           case "status":
             var istat = Account.FindStatus(value);
             if (istat < 0) goto notfound;
-            ret.predicates.Add(a => a.MatchByStatus(value));
+            ret.predicates.Add(a => a.MatchByStatus(istat));
             ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetStatusIndex((byte)istat));
             break;
           case "fname":
-            ret.predicates.Add(a => a.MatchByFName(value));break;
+            var fid = stor.firstNamesMap.Find(value);
+            ret.emptyQuery = fid == -1;
+            ret.predicates.Add(a => a.MatchByFName((byte)fid));break;
           case "sname":
-            ret.predicates.Add(a => a.MatchBySName(value));break;
+            var sid = stor.surnamesMap.Find(value);
+            ret.emptyQuery = sid == -1;
+            ret.predicates.Add(a => a.MatchBySName((ushort)sid));break;
           case "phone":
             ret.predicates.Add(a => a.MatchByPhone(value));break;
           case "country":
-            ret.predicates.Add(a => a.MatchByCountry(value));
             var countryId = stor.countriesMap.Find(value);
+            ret.predicates.Add(a => a.MatchByCountry((byte)countryId));
             ret.emptyQuery = countryId == -1;
             ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetCountryIndex((byte)countryId));
             break;
           case "city":
-            ret.predicates.Add(a => a.MatchByCity(value));
             var cityId = stor.citiesMap.Find(value);
+            ret.predicates.Add(a => a.MatchByCity((ushort)cityId));
             ret.emptyQuery = cityId == -1;
             ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetCityIndex((ushort)cityId));
             break;

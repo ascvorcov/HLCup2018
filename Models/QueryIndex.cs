@@ -13,6 +13,8 @@ namespace hlcup2018.Models
 
   public class SimpleQueryIndex<T>
   {
+    private static readonly ReverseComparer<int> reverseComparer = ReverseComparer<int>.Instance;
+
     private readonly List<List<int>> index = new List<List<int>>();
     private readonly Func<Account,T> keySelector;
     private readonly Func<T,int> indexSelector;
@@ -21,6 +23,28 @@ namespace hlcup2018.Models
     {
       this.indexSelector = indexSelector;
       this.keySelector = keySelector;
+    }
+
+    public void UpdateIndex(T @old, Account updated)
+    {
+      T @new = keySelector(updated);
+      var list = this.index[indexSelector(@old)];
+
+      if (list.Count > 0)
+      {
+        int found = list.BinarySearch(updated.id, reverseComparer);
+        if (found >= 0)
+          list.RemoveAt(found);
+      }
+
+      var selectedIdx = indexSelector(@new);
+      while (selectedIdx >= this.index.Count)
+        this.index.Add(new List<int>());
+
+      var list2 = this.index[selectedIdx];
+      int idx = list2.BinarySearch(updated.id, reverseComparer);
+      if (idx < 0)
+        list2.Insert(~idx, updated.id);
     }
 
     public void BuildIndex(int expectedSize)

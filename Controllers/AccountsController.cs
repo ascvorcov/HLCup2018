@@ -139,6 +139,7 @@ namespace hlcup2018.Controllers
             var created = Account.FromJson(acc, 0);
             if (created == null) return BadRequest();
             Storage.Instance.AddAccount(created);
+            Storage.Instance.UpdateLikesIndexResize();
             Response.StatusCode = 201;
             return "{}";
         }
@@ -155,7 +156,8 @@ namespace hlcup2018.Controllers
                 if (liker == null) return BadRequest();
                 if (likee == null) return BadRequest();
 
-                liker.AddLike(likee.id, like.ts);
+                var newlike = liker.AddLike(likee.id, like.ts);
+                Storage.Instance.UpdateLikesIndexAddNewLike(newlike, liker.id);
             }
 
             Response.StatusCode = 202;
