@@ -61,7 +61,7 @@ namespace hlcup2018.Models
         case 5: result = MoreLinq.Extensions.SortedMergeExtension.SortedMerge(selected[0], MoreLinq.OrderByDirection.Descending, selected[1], selected[2], selected[3], selected[4]); break;
         default:result = MoreLinq.Extensions.SortedMergeExtension.SortedMerge(selected[0], MoreLinq.OrderByDirection.Descending, selected.Skip(1).ToArray()); break;
       }
-      //selected.SelectMany(x => x).OrderByDescending(x => x);
+      //selected.SelectMany(x => x).Order ByDescending(x => x);
 
       foreach (var id in result)
         yield return instance.GetAccount(id);

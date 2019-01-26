@@ -89,6 +89,48 @@ namespace hlcup2018.Models
       }
     }
 
+    class GroupByComparer
+    {
+      public static readonly IComparer<Grouping>[] Instance = new IComparer<Grouping>[]
+      {
+        new Inverse(),
+        null,
+        new Direct()
+      };
+
+      private class Direct : IComparer<Grouping>
+      {
+        private Comparer<int> intcmp = Comparer<int>.Default;
+        private StringComparer strcmp = StringComparer.Ordinal;
+        public int Compare(Grouping x, Grouping y)
+        {
+          var res = intcmp.Compare(x.count, y.count);
+          if (res != 0) return res;
+          return strcmp.Compare(x.interest, y.interest);
+        }
+      }
+
+      private class Inverse : IComparer<Grouping>
+      {
+        private Comparer<int> intcmp = Comparer<int>.Default;
+        private StringComparer strcmp = StringComparer.Ordinal;
+        public int Compare(Grouping x, Grouping y)
+        {
+          var res = intcmp.Compare(y.count, x.count);
+          if (res != 0) return res;
+          return strcmp.Compare(y.interest, x.interest);
+        }
+      }
+
+    }
+
+    private struct Grouping
+    {
+      public string interest;
+      public int id;
+      public int count;
+    }
+
     private GroupByResult ByInterests()
     {
       var map = Storage.Instance.interestsMap;
@@ -97,21 +139,23 @@ namespace hlcup2018.Models
       foreach (var acc in Filter())
         acc.CountInterests(grouping);
 
-      IEnumerable<JObject> result;
-      if (Order == 1)  // skip empty item
-        result = grouping.Select((val,id) => (val,map.Get(id)))
-          .Where(x => x.Item1 > 0)
-          .OrderBy(x => x.Item1)
-          .ThenBy(x => x.Item2, comparer)
-          .Select(x => new JObject { ["count"] = x.Item1, ["interests"] = x.Item2 });
-      else
-        result = grouping.Select((val,id) => (val,map.Get(id)))
-          .Where(x => x.Item1 > 0)
-          .OrderByDescending(x => x.Item1)
-          .ThenByDescending(x => x.Item2, comparer)
-          .Select(x => new JObject { ["count"] = x.Item1, ["interests"] = x.Item2 });
+      var list = new List<Grouping>(map.Count - 1);
+      for (int id = 1; id < grouping.Length; ++id)
+      {
+        var count = grouping[id];
+        if (count == 0) continue;
+        list.Add(new Grouping { interest = map.Get(id), id = id, count = count });
+      }
 
-      return new GroupByResult { groups = result.Take(Limit) };
+      list.Sort(GroupByComparer.Instance[Order+1]);
+
+      return new GroupByResult { groups = Yield() };
+
+      IEnumerable<JObject> Yield()
+      {
+        foreach (var item in list.Take(Limit))
+          yield return new JObject { ["count"] = item.count, ["interests"] = item.interest };
+      }
     }
 
     private IEnumerable<Account> Filter()
