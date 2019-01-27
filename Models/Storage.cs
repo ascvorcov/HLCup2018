@@ -59,56 +59,52 @@ namespace hlcup2018.Models
 
     public IQueryIndex GetCityIndex(params ushort[] keys)
     {
-      lock (this.cityIndex)
-        return this.cityIndex.WithKey(keys);
+      return this.cityIndex.WithKey(keys);
     }
 
     public IQueryIndex GetCountryIndex(params byte[] keys)
     {
-      lock (this.countryIndex)
-        return this.countryIndex.WithKey(keys);
+      return this.countryIndex.WithKey(keys);
     }
 
     public IQueryIndex GetPhoneCodeIndex(params ushort[] keys)
     {
-      lock (this.phoneCodeIndex)
-        return this.phoneCodeIndex.WithKey(keys);
+      return this.phoneCodeIndex.WithKey(keys);
     }
 
     public IQueryIndex GetStatusIndex(params byte[] keys)
     {
-      lock (this.statusIndex)
-        return this.statusIndex.WithKey(keys);
+      return this.statusIndex.WithKey(keys);
     }
 
     public IQueryIndex GetSexIndex(char sex)
     {
-      lock (this.sexIndex)
-        return this.sexIndex.WithKey(sex);
+      return this.sexIndex.WithKey(sex);
     }
 
     public IQueryIndex GetAgeIndex(params byte[] keys)
     {
-      lock (this.ageIndex)
-        return this.ageIndex.WithKey(keys);
+      return this.ageIndex.WithKey(keys);
     }
 
     public IQueryIndex GetJoinedIndex(params byte[] keys)
     {
-      lock (this.joinedIndex)
-        return this.joinedIndex.WithKey(keys);
+      return this.joinedIndex.WithKey(keys);
     }
 
     public IQueryIndex GetInterestsIndex(ICollection<int> keys)
     {
-      lock (this.interestsIndex)
-        return this.interestsIndex.GetByKey(keys);
+      return this.interestsIndex.GetByKey(keys);
     }
 
     public IQueryIndex GetLikedByIndex(ICollection<int> keys)
     {
-      lock (this.likedByIndex)
-        return this.likedByIndex.GetByKey(keys);
+      return this.likedByIndex.GetByKey(keys);
+    }
+
+    public List<int> GetLikedBy(int id)
+    {
+      return this.likedByIndex.DirectGet(id);
     }
 
     public void UpdateCountryIndex(byte old, Account acc)
@@ -194,12 +190,6 @@ namespace hlcup2018.Models
       this.interestsIndex.BuildIndex(stor.interestsMap.Count);
 
       Console.WriteLine("index completed at " + DateTime.Now);
-    }
-
-    public List<int> GetLikedBy(int id)
-    {
-      lock (this.likedByIndex)
-        return this.likedByIndex.DirectGet(id);
     }
   }
 }

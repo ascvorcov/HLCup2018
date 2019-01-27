@@ -5,6 +5,9 @@ out
 *.xlsx
 *.bak
 *.exe
+*.dtp
+*.dtt
+*.DotSettings
 input_max
 input_min
 statistics
