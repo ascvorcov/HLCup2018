@@ -4,6 +4,7 @@ namespace hlcup2018.Models
   using System.Collections.Generic;
   using System.Diagnostics;
   using System.Linq;
+  using System.Runtime.CompilerServices;
   using Newtonsoft.Json.Linq;
 
   public class Account
@@ -162,41 +163,28 @@ namespace hlcup2018.Models
       }
     }
 
-    public bool MatchBySex(char s)
-    {
-      return this.sex == s;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchBySex(char s) => this.sex == s;
 
-    public bool MatchByEmail(string e)
-    {
-      return this.email == e;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchByEmail(string e) => this.email == e;
 
-    public bool MatchByEmailDomain(int domainId)
-    {
-      return (this.emailId >> 24) == domainId;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchByEmailDomain(int domainId) => (this.emailId >> 24) == domainId;
 
-    public bool EmailLessThan(string eml)
-    {
-      return string.CompareOrdinal(this.email, eml) < 0;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool EmailLessThan(string eml) => string.CompareOrdinal(this.email, eml) < 0;
 
-    public bool EmailGreaterThan(string eml)
-    {
-      return string.CompareOrdinal(this.email, eml) > 0;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool EmailGreaterThan(string eml) => string.CompareOrdinal(this.email, eml) > 0;
 
-    public bool MatchByStatus(int istat)
-    {
-      return this.istatus == istat;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchByStatus(int istat) => this.istatus == istat;
 
-    public bool MatchByStatusNot(int istat)
-    {
-      return this.istatus != istat;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchByStatusNot(int istat) => this.istatus != istat;
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool MatchByFName(params byte[] names)
     {
       foreach (var n in names)
@@ -205,59 +193,34 @@ namespace hlcup2018.Models
       return false;
     }
 
-    public bool MatchHasFName(bool hasFName)
-    {
-      // finds all records which have FName if hasFName = true
-      // if hasFName = false, finds all records with empty FName.
-      return hasFName ? this.firstNameId > 0 : this.firstNameId == 0;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchHasFName(bool hasFName) => hasFName ? this.firstNameId > 0 : this.firstNameId == 0;
 
-    public bool MatchBySName(ushort sname)
-    {
-      return this.surnameId == sname;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchBySName(ushort sname) => this.surnameId == sname;
     
-    public bool MatchSNameStarts(string name)
-    {
-      return this.sname?.StartsWith(name) ?? false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchSNameStarts(string name) => this.sname?.StartsWith(name) ?? false;
 
-    public bool MatchHasSName(bool hasSName)
-    {
-      // finds all records which have SName if hasSName = true
-      // if hasSName = false, finds all records with empty SName.
-      return hasSName ? this.surnameId > 0 : this.surnameId == 0;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchHasSName(bool hasSName) => hasSName ? this.surnameId > 0 : this.surnameId == 0;
 
-    public bool MatchByPhone(string phone)
-    {
-      return this.phone == phone;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchByPhone(string phone) => this.phone == phone;
 
-    public bool MatchByPhoneCode(ushort code)
-    {
-      return this.phoneCode == code;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchByPhoneCode(ushort code) => this.phoneCode == code;
 
-    public bool MatchHasPhone(bool hasPhone)
-    {
-      // finds all records which have phone if hasPhone = true
-      // if hasPhone = false, finds all records with empty phone.
-      return hasPhone ? this.phoneCode > 0 : this.phoneCode == 0;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchHasPhone(bool hasPhone) => hasPhone ? this.phoneCode > 0 : this.phoneCode == 0;
 
-    public bool MatchByCountry(byte country)
-    {
-      return this.countryId == country;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchByCountry(byte country) => this.countryId == country;
 
-    public bool MatchHasCountry(bool hasCountry)
-    {
-      // finds all records which have country if hasCountry = true
-      // if hasCountry = false, finds all records with empty country.
-      return hasCountry ? this.countryId > 0 : this.countryId == 0;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchHasCountry(bool hasCountry) => hasCountry ? this.countryId > 0 : this.countryId == 0;
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool MatchByCity(params ushort[] cities)
     {
       foreach (var c in cities)
@@ -266,45 +229,28 @@ namespace hlcup2018.Models
       return false;
     }
 
-    public bool MatchHasCity(bool hasCity)
-    {
-      // finds all records which have city if hasCity = true
-      // if hasCity = false, finds all records with empty city.
-      return hasCity ? this.cityId > 0 : this.cityId == 0;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchHasCity(bool hasCity) => hasCity ? this.cityId > 0 : this.cityId == 0;
 
-    public bool BirthLessThan(int ts)
-    {
-      return this.birth < ts;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool BirthLessThan(int ts) => this.birth < ts;
 
-    public bool BirthGreaterThan(int ts)
-    {
-      return this.birth > ts;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool BirthGreaterThan(int ts) => this.birth > ts;
 
-    public bool MatchBirthByYear(int year)
-    {
-      return birthYear+1949 == year;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchBirthByYear(int year) => this.birthYear+1949 == year;
     
-    public bool MatchJoinedByYear(int year)
-    {
-      return joinedYear+2010 == year;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchJoinedByYear(int year) => this.joinedYear + 2010 == year;
 
-    public bool MatchInterestsContains(Interests other)
-    {
-      if (this.interestData.Empty) return false;
-      return this.interestData.HasAllIntersectingInterestsWith(other);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchInterestsContains(Interests other) => this.interestData.Empty ? false : this.interestData.HasAllIntersectingInterestsWith(other);
 
-    public bool MatchInterestsAny(Interests other)
-    {
-      if (this.interestData.Empty) return false;
-      return this.interestData.HasAnyIntersectingInterestsWith(other);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchInterestsAny(Interests other) => this.interestData.Empty ? false : this.interestData.HasAnyIntersectingInterestsWith(other);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool MatchByLikes(ISet<int> ids)
     {
       if (this._likes == null) return false;
@@ -324,23 +270,18 @@ namespace hlcup2018.Models
       return false;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool MatchByLike(int id)
     {
       if (this._likes == null) return false;
       return this._likes.BinarySearch(new Like{id=id}, LikeComparer.Instance) >= 0;
     }
 
-    public bool MatchIsPremium(int currentTs)
-    {
-      return this.premium.start <= currentTs && currentTs < this.premium.finish;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchIsPremium(int currentTs) => this.premium.start <= currentTs && currentTs < this.premium.finish;
 
-    public bool MatchHasPremium(bool hasPremium)
-    {
-      // finds all records which have premium info if hasPremium = true
-      // if hasPremium = false, finds all records with empty premium info.
-      return hasPremium ? this.premium.start > 0 : this.premium.start == 0;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool MatchHasPremium(bool hasPremium) => hasPremium ? this.premium.start > 0 : this.premium.start == 0;
 
     public bool HasInterests => !this.interestData.Empty;
 

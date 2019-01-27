@@ -134,10 +134,18 @@ namespace hlcup2018.Models
     private GroupByResult ByInterests()
     {
       var map = Storage.Instance.interestsMap;
-      var grouping = new int[map.Count];
 
-      foreach (var acc in Filter())
-        acc.CountInterests(grouping);
+      int[] grouping;
+      if (!predicates.Any()) // group entire set by interests. precomputed
+      {
+        grouping = Storage.Instance.GetEntireSetInterestsCount();
+      }
+      else
+      {
+        grouping = new int[map.Count];
+        foreach (var acc in Filter())
+          acc.CountInterests(grouping);
+      }
 
       var list = new List<Grouping>(map.Count - 1);
       for (int id = 1; id < grouping.Length; ++id)
@@ -168,9 +176,22 @@ namespace hlcup2018.Models
           return stor.GetAllAccounts();
 
         if (this.selectedIndex != null)
-          return this.selectedIndex.Select().Where(acc => predicates.All(p => p(acc)));
+          return FromIndex();
 
       return stor.GetAllAccounts().Where(acc => predicates.All(p => p(acc)));
+
+      IEnumerable<Account> FromIndex()
+      {
+        foreach (var acc in this.selectedIndex.Select())
+        {
+          for (int i = 0; i < predicates.Count; ++i)
+            if (!predicates[i].Invoke(acc))
+              goto next;
+          yield return acc;
+next:
+          continue;
+        }
+      }
     }
 
     public static GroupBy Parse(string query, out int code)

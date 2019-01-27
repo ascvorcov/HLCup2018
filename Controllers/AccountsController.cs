@@ -1,64 +1,64 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading.Tasks;
 using System.Web;
 using hlcup2018.Models;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace hlcup2018.Controllers
 {
-    [Route("[controller]")]
-    [ApiController]
-    public class AccountsController : ControllerBase
+    public class AccountsController
     {
-        // GET /accounts/filter
-        [HttpGet("show/{id}")]
-        public ActionResult<Account> Show(int id)
-        {
-            return Storage.Instance.GetAccount(id);
-        }
+        private static readonly JsonSerializer serializer = JsonSerializer.Create();
+        public static byte[] empty = new byte[0];
+        static byte[] emptyJson = Encoding.UTF8.GetBytes("{}");
 
         // GET /accounts/filter
-        [HttpGet("filter")]
-        public ActionResult<QueryResult> Filter()
+        public byte[] Filter(HttpContext ctx)
         {
-            var query = Query.Parse(Request.QueryString.Value);
-            if (query == null) return BadRequest();
+            var query = Query.Parse(ctx.Request.QueryString.Value);
+            if (query == null) return BadRequest(ctx);
 
-            return query.Execute();
+            var ret = query.Execute();
+            return Json(ctx, ret);
         }
 
         // GET /accounts/group
-        [HttpGet("group")]
-        public ActionResult<GroupByResult> Group()
+        public byte[] Group(HttpContext ctx)
         {
-            var grouping = GroupBy.Parse(Request.QueryString.Value, out var code);
+            var grouping = GroupBy.Parse(ctx.Request.QueryString.Value, out var code);
             switch (code)
             {
-                case 200: return grouping.Execute();
-                case 404: return NotFound();
-                default: return BadRequest();
+                case 200: return Json(ctx, grouping.Execute());
+                case 404: return NotFound(ctx);
+                default: return BadRequest(ctx);
             }
         }
 
         // GET /accounts/5/recommend
-        [HttpGet("{id}/recommend")]
-        public ActionResult<QueryResult> Recommend(int id)
+        public byte[] Recommend(HttpContext ctx, string strid)
         {
-            if (!Storage.Instance.HasAccount(id)) return NotFound();
+            if (!int.TryParse(strid, out var id)) return BadRequest(ctx);
+            if (!Storage.Instance.HasAccount(id)) return NotFound(ctx);
+
             var acc = Storage.Instance.GetAccount(id);
-            var parsed = HttpUtility.ParseQueryString(Request.QueryString.Value);
+            var parsed = HttpUtility.ParseQueryString(ctx.Request.QueryString.Value);
             var city = parsed.Get("city");
             var country = parsed.Get("country");
             
-            if (city == "" || country == "") return BadRequest();
-            if (!int.TryParse(parsed.Get("limit"), out var limit) || limit <= 0) return BadRequest();
+            if (city == "" || country == "") return BadRequest(ctx);
+            if (!int.TryParse(parsed.Get("limit"), out var limit) || limit <= 0) return BadRequest(ctx);
             var query = acc.Recommend(country, city, limit);
-            if (query == null) return BadRequest();
+            if (query == null) return BadRequest(ctx);
 
-            return new QueryResult
+            var result = new QueryResult
             {
                 accounts = query.Select(x => 
                 {
@@ -80,26 +80,28 @@ namespace hlcup2018.Controllers
                     return ret;
                 })
             };
+
+            return Json(ctx, result);
         }
 
-        // GET /accounts/5/recommend
-        [HttpGet("{id}/suggest")]
-        public ActionResult<QueryResult> Suggest(int id)
+        // GET /accounts/5/suggest
+        public byte[] Suggest(HttpContext ctx, string strid)
         {
             var stor = Storage.Instance;
-            if (!stor.HasAccount(id)) return NotFound();
+            if (!int.TryParse(strid, out var id)) return BadRequest(ctx);
+            if (!stor.HasAccount(id)) return NotFound(ctx);
             var acc = stor.GetAccount(id);
-            var parsed = HttpUtility.ParseQueryString(Request.QueryString.Value);
+            var parsed = HttpUtility.ParseQueryString(ctx.Request.QueryString.Value);
             var city = parsed.Get("city");
             var country = parsed.Get("country");
             
-            if (city == "" || country == "") return BadRequest();
-            if (!int.TryParse(parsed.Get("limit"), out var limit) || limit <= 0) return BadRequest();
+            if (city == "" || country == "") return BadRequest(ctx);
+            if (!int.TryParse(parsed.Get("limit"), out var limit) || limit <= 0) return BadRequest(ctx);
             
             var query = acc.Suggest(country, city, limit);
-            if (query == null) return BadRequest();
+            if (query == null) return BadRequest(ctx);
             
-            return new QueryResult
+            var result = new QueryResult
             {
                 accounts = query.Select(x => 
                 {
@@ -116,52 +118,118 @@ namespace hlcup2018.Controllers
                     return ret;
                 })
             };
+            return Json(ctx, result);
         }
 
         // POST /accounts/5
-        [HttpPost("{str}")]
-        public ActionResult<string> Update(string str, [FromBody] JObject acc)
+        public byte[] Update(HttpContext ctx, string strid)
         {
-            if (acc == null || !ModelState.IsValid) return NotFound();
-            if (!int.TryParse(str, out var id)) return BadRequest();
-            if (!Storage.Instance.HasAccount(id)) return NotFound();
+            if (!int.TryParse(strid, out var id)) return BadRequest(ctx);
+
+            var acc = ReadJson(ctx);
+            if (acc == null) return NotFound(ctx);
+            if (!Storage.Instance.HasAccount(id)) return NotFound(ctx);
             var updated = Account.FromJson(acc, id);
-            if (updated == null) return BadRequest();
-            Response.StatusCode = 202;
-            return "{}";
+            if (updated == null) return BadRequest(ctx);
+            
+            return EmptyJson(StatusCodes.Status202Accepted, ctx);
         }
 
         // POST /accounts/new
-        [HttpPost("new")]
-        public ActionResult<string> New([FromBody] JObject acc)
+        public byte[] New(HttpContext ctx)
         {
-            if (acc == null || !ModelState.IsValid) return BadRequest();
+            var acc = ReadJson(ctx);
+            if (acc == null) return BadRequest(ctx);
             var created = Account.FromJson(acc, 0);
-            if (created == null) return BadRequest();
+            if (created == null) return BadRequest(ctx);
             Storage.Instance.AddAccount(created);
             Storage.Instance.UpdateLikesIndexResize();
-            Response.StatusCode = 201;
-            return "{}";
+            return EmptyJson(StatusCodes.Status201Created, ctx);
         }
 
         // POST /accounts/likes
-        [HttpPost("likes")]
-        public ActionResult<string> Likes([FromBody] Likes data)
+        public byte[] Likes(HttpContext ctx)
         {
-            if (data == null || !ModelState.IsValid) return BadRequest();
-            foreach (var like in data.likes)
+            try
             {
-                var liker = Storage.Instance.GetAccount(like.liker);
-                var likee = Storage.Instance.GetAccount(like.likee);
-                if (liker == null) return BadRequest();
-                if (likee == null) return BadRequest();
+                Likes data = Utf8Json.JsonSerializer.Deserialize<Likes>(ctx.Request.Body);
+                if (data.likes == null) return BadRequest(ctx);
+                var stor = Storage.Instance;
+                foreach (var like in data.likes)
+                {
+                    if (!stor.HasAccount(like.liker)) return BadRequest(ctx);
+                    if (!stor.HasAccount(like.likee)) return BadRequest(ctx);
+                }
 
-                var newlike = liker.AddLike(likee.id, like.ts);
-                Storage.Instance.UpdateLikesIndexAddNewLike(newlike, liker.id);
+                foreach (var like in data.likes)
+                {
+                    var liker = stor.GetAccount(like.liker);
+                    var newlike = liker.AddLike(like.likee, like.ts);
+                    stor.UpdateLikesIndexAddNewLike(newlike, like.liker);
+                }
+
+                return EmptyJson(StatusCodes.Status202Accepted, ctx);
+            }
+            catch
+            {
+                return BadRequest(ctx);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static byte[] NotFound(HttpContext ctx)
+        {
+            ctx.Response.StatusCode = StatusCodes.Status404NotFound;
+            return empty;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static byte[] BadRequest(HttpContext ctx)
+        {
+            ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
+            return empty;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static byte[] Json(HttpContext ctx, object obj)
+        {
+            ctx.Response.StatusCode = StatusCodes.Status200OK;
+            ctx.Response.ContentType = "application/json";
+
+            using (var stream = new MemoryStream())
+            using (var writer = new StreamWriter(stream, Encoding.UTF8))
+            {
+                serializer.Serialize(writer, obj);
+                writer.Flush();
+                return stream.ToArray();
             }
 
-            Response.StatusCode = 202;
-            return "{}";
+            //return Utf8Json.JsonSerializer.Serialize(obj);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static byte[] EmptyJson(int code, HttpContext ctx)
+        {
+            ctx.Response.StatusCode = code;
+            ctx.Response.ContentType = "application/json";
+            return emptyJson;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static JObject ReadJson(HttpContext ctx)
+        {
+            try
+            {
+                using (var reader = new StreamReader(ctx.Request.Body))
+                using (var jtr = new JsonTextReader(reader)) 
+                {
+                    return (JObject)JToken.ReadFrom(jtr);
+                }
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }

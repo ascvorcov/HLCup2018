@@ -97,6 +97,14 @@ namespace hlcup2018.Models
       return this.interestsIndex.GetByKey(keys);
     }
 
+    public int[] GetEntireSetInterestsCount()
+    {
+      int[] ret = new int[this.interestsMap.Count];
+      for(int i = 0; i < this.interestsMap.Count; ++i)
+        ret[i] = this.interestsIndex.DirectGet(i).Count;
+      return ret;
+    }
+
     public IQueryIndex GetLikedByIndex(ICollection<int> keys)
     {
       return this.likedByIndex.GetByKey(keys);
