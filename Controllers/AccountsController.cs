@@ -16,9 +16,10 @@ namespace hlcup2018.Controllers
 {
     public class AccountsController
     {
+        private static readonly Encoding utf8WithoutBom = new System.Text.UTF8Encoding(false);
         private static readonly JsonSerializer serializer = JsonSerializer.Create();
-        public static byte[] empty = new byte[0];
-        static byte[] emptyJson = Encoding.UTF8.GetBytes("{}");
+        private static readonly byte[] emptyJson = utf8WithoutBom.GetBytes("{}");
+        public static readonly byte[] empty = new byte[0];
 
         // GET /accounts/filter
         public byte[] Filter(HttpContext ctx)
@@ -194,10 +195,10 @@ namespace hlcup2018.Controllers
         static byte[] Json(HttpContext ctx, object obj)
         {
             ctx.Response.StatusCode = StatusCodes.Status200OK;
-            ctx.Response.ContentType = "application/json";
+            ctx.Response.ContentType = "application/json; charset=utf-8";
 
             using (var stream = new MemoryStream())
-            using (var writer = new StreamWriter(stream, Encoding.UTF8))
+            using (var writer = new StreamWriter(stream, utf8WithoutBom))
             {
                 serializer.Serialize(writer, obj);
                 writer.Flush();
