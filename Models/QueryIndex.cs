@@ -68,6 +68,14 @@ namespace hlcup2018.Models
 
     public IQueryIndex WithKey(params T[] keys) => new KeyedQueryIndex(this, keys);
 
+    public int[] GetCount()
+    {
+      var ret = new int[this.index.Count];
+      for(int i = 0; i < this.index.Count; ++i)
+        ret[i] = this.index[i].Count;
+      return ret;
+    }
+
     private IEnumerable<Account> Select(params T[] keys)
     {
       var instance = Storage.Instance;

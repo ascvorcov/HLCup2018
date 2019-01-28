@@ -20,7 +20,7 @@ public class Program
     }
 
     public static IWebHostBuilder GetHostBuilder(string port = "80") => new WebHostBuilder()
-        .UseKestrel()
+        .UseKestrel(o => o.Limits.MaxConcurrentConnections = 1000)
         .UseUrls($"http://*:{port}")
         .Configure(cfg => cfg.Run(ctx => HandleRequest(ctx)));
 

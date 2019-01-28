@@ -75,7 +75,16 @@ namespace hlcup2018.Models
 
     public string phone
     {
-      get => phoneCode == 0 ? null : $"8({phoneCode:000}){phoneNumber:0000000}";
+      get
+      {
+        if (phoneCode == 0) return null;
+        var prefix = $"8({phoneCode:000})";
+        
+        if (phoneNumber >= 0)
+          return prefix + phoneNumber.ToString("0000000");
+        else
+          return prefix + (-phoneNumber).ToString("00000000");
+      }
       set
       {
         if (string.IsNullOrEmpty(value))
@@ -87,6 +96,8 @@ namespace hlcup2018.Models
         var phoneChunks = value.Split('(', ')');
         this.phoneCode = ushort.Parse(phoneChunks[1]);
         this.phoneNumber = int.Parse(phoneChunks[2]);
+        if (phoneChunks[2].StartsWith("0") && phoneChunks[2].Length > 7)
+          this.phoneNumber = -this.phoneNumber; // use sign to store single leading zero
       }
     }
 
@@ -525,6 +536,7 @@ namespace hlcup2018.Models
     }
 
     public static int FindStatus(string status) => Array.IndexOf(statuses, status);
+    public static string GetStatus(int id) => statuses[id];
 
     public static Func<Account, ulong> CreateKeySelector(string[] keys)
     {
@@ -588,12 +600,12 @@ namespace hlcup2018.Models
 
       IEnumerable<Compatibility> Filter()
       {
-        var accounts = index == null ? storage.GetAllAccounts() : index.Select();
+        var accounts = index == null ? storage.GetSexIndex(this.sex == 'm' ? 'f' : 'm').Select() : index.Select();
         foreach (var acc in accounts)
         {
           if (acc.sex == this.sex) continue; // skip same gender
-          if (countryId > 0 && acc.countryId != countryId) continue;
-          if (cityId > 0 && acc.cityId != cityId) continue;
+          //if (countryId > 0 && acc.countryId != countryId) continue;
+          //if (cityId > 0 && acc.cityId != cityId) continue;
 
           // find by similarity index
           bool premium = acc.premium.IsActive(storage.timestamp); 

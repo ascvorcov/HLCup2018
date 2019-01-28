@@ -30,6 +30,23 @@ namespace hlcup2018.Models
     {
       if (byInterests)
         return ByInterests(); // special kind of grouping
+      
+      if (keys.Length == 1 && predicates.Count == 0) // use existing index for counting
+      {
+        var stor = Storage.Instance;
+        switch(keys[0])
+        {
+          case "sex":
+            return new GroupByResult { groups = IndexToResult(stor.GetEntireSetSexCount(), i => i == 0 ? "m":"f") };
+          case "status":
+            return new GroupByResult { groups = IndexToResult(stor.GetEntireSetStatusCount(), Account.GetStatus) };
+          case "country":
+            return new GroupByResult { groups = IndexToResult(stor.GetEntireSetCountryCount(), stor.countriesMap.Get) };
+          case "city":
+            return new GroupByResult { groups = IndexToResult(stor.GetEntireSetCityCount(), stor.citiesMap.Get) };
+          default: throw new Exception(keys[0]);
+        }
+      }
 
       var query = Filter().GroupBy(keySelector).GroupBy(g => g.Count()).OrderBy(g => g.Key * Order).SelectMany(gg =>
       {
@@ -53,6 +70,22 @@ namespace hlcup2018.Models
       });
 
       return new GroupByResult() { groups = query.Select(ToJson).Take(Limit) };
+
+      IEnumerable<JObject> IndexToResult(int[] count, Func<int,string> map)
+      {
+        var topN = count
+          .Select((c,i) => new Grouping { id = i, count = c, text = map(i) })
+          .Where(g => g.count > 0)
+          .TakeTopN(Limit, GroupByComparer.Instance[-Order+1]);
+
+        foreach (var g in topN)
+        {
+          if (g.text is null)
+            yield return new JObject { ["count"] = g.count };
+          else
+            yield return new JObject { ["count"] = g.count, [this.keys[0]] = g.text };
+        }
+      }
 
       JObject ToJson(string[] o)
       {
@@ -106,7 +139,7 @@ namespace hlcup2018.Models
         {
           var res = intcmp.Compare(x.count, y.count);
           if (res != 0) return res;
-          return strcmp.Compare(x.interest, y.interest);
+          return strcmp.Compare(x.text, y.text);
         }
       }
 
@@ -118,7 +151,7 @@ namespace hlcup2018.Models
         {
           var res = intcmp.Compare(y.count, x.count);
           if (res != 0) return res;
-          return strcmp.Compare(y.interest, x.interest);
+          return strcmp.Compare(y.text, x.text);
         }
       }
 
@@ -126,7 +159,7 @@ namespace hlcup2018.Models
 
     private struct Grouping
     {
-      public string interest;
+      public string text;
       public int id;
       public int count;
     }
@@ -152,7 +185,7 @@ namespace hlcup2018.Models
       {
         var count = grouping[id];
         if (count == 0) continue;
-        list.Add(new Grouping { interest = map.Get(id), id = id, count = count });
+        list.Add(new Grouping { text = map.Get(id), id = id, count = count });
       }
 
       list.Sort(GroupByComparer.Instance[Order+1]);
@@ -162,7 +195,7 @@ namespace hlcup2018.Models
       IEnumerable<JObject> Yield()
       {
         foreach (var item in list.Take(Limit))
-          yield return new JObject { ["count"] = item.count, ["interests"] = item.interest };
+          yield return new JObject { ["count"] = item.count, ["interests"] = item.text };
       }
     }
 

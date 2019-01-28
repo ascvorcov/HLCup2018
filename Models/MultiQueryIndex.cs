@@ -84,6 +84,14 @@ namespace hlcup2018.Models
       this.selectivity = (int)(avg / index.Count);
     }
 
+    public int[] GetCount()
+    {
+      var ret = new int[this.index.Count];
+      for(int i = 0; i < this.index.Count; ++i)
+        ret[i] = this.index[i].Count;
+      return ret;
+    }
+
     public List<int> DirectGet(int key) => this.index[key];
 
     public IQueryIndex GetByKey(ICollection<int> keys) => new KeyedQuery(this, keys);
