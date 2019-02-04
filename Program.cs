@@ -20,13 +20,13 @@ public class Program
     }
 
     public static IWebHostBuilder GetHostBuilder(string port = "80") => new WebHostBuilder()
-        .UseKestrel(o => o.Limits.MaxConcurrentConnections = 1000)
+        .UseKestrel()
         .UseUrls($"http://*:{port}")
-        .Configure(cfg => cfg.Run(ctx => HandleRequest(ctx)));
+        .Configure(cfg => cfg.Run(ctx => Task.Run(() => HandleRequest(ctx))));
 
     private static AccountsController controller = new AccountsController();
 
-    private static Task HandleRequest(HttpContext ctx) {
+    private static void HandleRequest(HttpContext ctx) {
         var body = AccountsController.empty;
 
         var parts = ctx.Request.Path.Value.Split('/', StringSplitOptions.RemoveEmptyEntries);
@@ -35,7 +35,7 @@ public class Program
         if (parts[0] != "accounts") 
         {
             ctx.Response.StatusCode = StatusCodes.Status404NotFound;
-            return Task.CompletedTask;
+            return;
         }
 
         bool get = ctx.Request.Method == "GET";
@@ -80,7 +80,7 @@ public class Program
             ctx.Response.Body.Write(body, 0, body.Length);
         }
 
-        return Task.CompletedTask;
+        return;
     }
 }
 

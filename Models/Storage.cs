@@ -4,6 +4,9 @@ namespace hlcup2018.Models
   using System.Collections.Generic;
   using System.Threading.Tasks;
   using System.Linq;
+  using System.Runtime.CompilerServices;
+  using System.Collections.Concurrent;
+  using System.Threading;
 
   public class Storage
   {
@@ -28,12 +31,22 @@ namespace hlcup2018.Models
     private readonly SimpleQueryIndex<byte> joinedIndex = new SimpleQueryIndex<byte>(x => x.GetJoinYear(), x => x);
     private readonly MultiQueryIndex<byte> interestsIndex = new MultiQueryIndex<byte>(x => x.GetInterestIds(), x => x);
     private readonly MultiQueryIndex<Account.Like> likedByIndex = new MultiQueryIndex<Account.Like>(x => x.likes, x => x.id);
-    
+
+    // composite indices
+    private readonly SimpleQueryIndex<byte> sexCountryIndex = new SimpleQueryIndex<byte>(x => Account.GetSexCountryId(x.GetCountryId(), x.sex == 'm'), x => x);
+    private readonly SimpleQueryIndex<ushort> statusCityIndex = new SimpleQueryIndex<ushort>(x => Account.GetStatusCityId(x.GetCityId(), x.GetStatusId()), x => x);
+
     public int timestamp;
     private int maxId;
     
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool HasAccount(int id) => id >= 0 && id < this.accounts.Length && this.accounts[id] != null;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Account GetAccount(int id) => this.accounts[id];
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void AddAccount(Account a)
     {
       lock (this.accounts)
@@ -43,6 +56,7 @@ namespace hlcup2018.Models
       }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IEnumerable<Account> GetAllAccounts()
     {
       for (int i = 1; i <= maxId; ++i)
@@ -50,6 +64,7 @@ namespace hlcup2018.Models
           yield return this.accounts[i];
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IEnumerable<Account> GetAllAccountsByDescendingId()
     {
       for (int i = maxId; i > 0; --i)
@@ -57,61 +72,82 @@ namespace hlcup2018.Models
           yield return this.accounts[i];
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IQueryIndex GetCityIndex(params ushort[] keys)
     {
       return this.cityIndex.WithKey(keys);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IQueryIndex GetCountryIndex(params byte[] keys)
     {
       return this.countryIndex.WithKey(keys);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IQueryIndex GetPhoneCodeIndex(params ushort[] keys)
     {
       return this.phoneCodeIndex.WithKey(keys);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IQueryIndex GetStatusIndex(params byte[] keys)
     {
       return this.statusIndex.WithKey(keys);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IQueryIndex GetSexIndex(char sex)
     {
       return this.sexIndex.WithKey(sex);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IQueryIndex GetAgeIndex(params byte[] keys)
     {
       return this.ageIndex.WithKey(keys);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IQueryIndex GetJoinedIndex(params byte[] keys)
     {
       return this.joinedIndex.WithKey(keys);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IQueryIndex GetInterestsIndex(ICollection<int> keys)
     {
       return this.interestsIndex.GetByKey(keys);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int[] GetEntireSetSexCount() => this.sexIndex.GetCount();
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int[] GetEntireSetStatusCount() => this.statusIndex.GetCount();
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int[] GetEntireSetCountryCount() => this.countryIndex.GetCount();
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int[] GetEntireSetCityCount() => this.cityIndex.GetCount();
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int[] GetEntireSetInterestsCount() => this.interestsIndex.GetCount();
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int[] GetEntireSetSexCountryCount() => this.sexCountryIndex.GetCount();
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int[] GetEntireSetStatusCityCount() => this.statusCityIndex.GetCount();
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IQueryIndex GetLikedByIndex(ICollection<int> keys)
     {
       return this.likedByIndex.GetByKey(keys);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public List<int> GetLikedBy(int id)
     {
       return this.likedByIndex.DirectGet(id);
@@ -121,12 +157,16 @@ namespace hlcup2018.Models
     {
       lock (this.countryIndex)
         this.countryIndex.UpdateIndex(old, acc);
+      lock (this.sexCountryIndex)
+        this.sexCountryIndex.UpdateIndex(Account.GetSexCountryId(old, acc.sex == 'm'), acc);
     }
 
     public void UpdateCityIndex(ushort old, Account acc)
     {
       lock (this.cityIndex)
         this.cityIndex.UpdateIndex(old, acc);
+      lock (this.statusCityIndex)
+        this.statusCityIndex.UpdateIndex(Account.GetStatusCityId(old, acc.GetStatusId()), acc);
     }
 
     public void UpdatePhoneCodeIndex(ushort old, Account acc)
@@ -139,12 +179,16 @@ namespace hlcup2018.Models
     {
       lock (this.sexIndex)
         this.sexIndex.UpdateIndex(old, acc);
+      lock (this.sexCountryIndex)
+        this.sexCountryIndex.UpdateIndex(Account.GetSexCountryId(acc.GetCountryId(), old == 'm'), acc);
     }
 
     public void UpdateStatusIndex(byte old, Account acc)
     {
       lock (this.statusIndex)
         this.statusIndex.UpdateIndex(old, acc);
+      lock (this.statusCityIndex)
+        this.statusCityIndex.UpdateIndex(Account.GetStatusCityId(acc.GetCityId(), old), acc);
     }
 
     public void UpdateAgeIndex(byte old, Account acc)
@@ -198,6 +242,9 @@ namespace hlcup2018.Models
       this.ageIndex.BuildIndex(57);
       this.joinedIndex.BuildIndex(9);
       this.interestsIndex.BuildIndex(stor.interestsMap.Count);
+      
+      this.sexCountryIndex.BuildIndex(stor.countriesMap.Count * 2);
+      this.statusCityIndex.BuildIndex(stor.citiesMap.Count * 4);
 
       Console.WriteLine("index completed at " + DateTime.Now);
     }

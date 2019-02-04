@@ -155,6 +155,15 @@ namespace hlcup2018.Models
     public byte GetBirthYear() => birthYear;
     public byte GetJoinYear() => joinedYear;
 
+    public static byte GetSexStatusId(bool sex, byte status) => (byte)(status << 1 | (sex?1:0));
+    public static byte GetSexCountryId(byte country, bool sex) => (byte)(country << 1 | (sex?1:0));
+    public static ushort GetSexCityId(ushort city, bool sex) => (ushort)(city << 1 | (sex?1:0));
+    public static ushort GetStatusCountryId(byte country, byte status) => (ushort)(country << 2 | status);
+    public static ushort GetStatusCityId(ushort city, byte status) => (ushort)(city << 2 | status);
+
+    public static (bool, byte) UnpackSexCountry(byte id) => ((id & 1) == 1, (byte)(id >> 1));
+    public static (byte, ushort) UnpackStatusCity(ushort id) => ((byte)(id & 3), (ushort)(id >> 2));
+
     public Like AddLike(int otherId, int ts)
     {
       lock (this)
@@ -475,13 +484,6 @@ namespace hlcup2018.Models
           storage.UpdateAgeIndex(old, ret);
         }
 
-        if (status != null || isNew) 
-        {
-          var old = ret.GetStatusId();
-          ret.status = status;
-          storage.UpdateStatusIndex(old, ret);
-        }
-
         if (city != null || isNew) 
         {
           var old = ret.GetCityId();
@@ -496,18 +498,25 @@ namespace hlcup2018.Models
           storage.UpdateCountryIndex(old, ret);
         }
 
-        if (phone != null || isNew) 
-        {
-          var old = ret.GetPhoneCode();
-          ret.phone = phone;
-          storage.UpdatePhoneCodeIndex(old, ret);
-        }
-
         if (sex != null || isNew) 
         {
           var old = ret.sex;
           ret.sex = sex[0];
           storage.UpdateSexIndex(old, ret);
+        }
+
+        if (status != null || isNew) 
+        {
+          var old = ret.GetStatusId();
+          ret.status = status;
+          storage.UpdateStatusIndex(old, ret);
+        }
+
+        if (phone != null || isNew) 
+        {
+          var old = ret.GetPhoneCode();
+          ret.phone = phone;
+          storage.UpdatePhoneCodeIndex(old, ret);
         }
 
         if (joined > 0 || isNew)
@@ -627,7 +636,7 @@ namespace hlcup2018.Models
       if (countryId == -1)return Enumerable.Empty<Account>(); // invalid country or city requested
       if (cityId == -1) return Enumerable.Empty<Account>();
 
-      var top100 = Filter().TakeTopN(100, Comparer.Instance);
+      var top100 = Filter().TakeTopN(50, Comparer.Instance);
       
       return top100.SelectMany(x => GetCandidates(x.id)).Take(limit).Select(storage.GetAccount);
 
@@ -641,7 +650,7 @@ namespace hlcup2018.Models
         if (usersWeLiked == null) 
           yield break;
 
-        var usersLikedSame = usersWeLiked.SelectMany(u => storage.GetLikedBy(u.id));
+        var usersLikedSame = usersWeLiked.SelectMany(u => storage.GetLikedBy(u.id)); // 300 on average
         foreach (var accId in usersLikedSame.Distinct())
         {
           var acc = storage.GetAccount(accId);

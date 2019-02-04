@@ -24,16 +24,48 @@ namespace hlcup2018.Models
 
     private IQueryIndex selectedIndex = null;
 
+    private int indexPredicate = -1;
+
     private bool emptyQuery = false;
 
     public GroupByResult Execute()
     {
       if (byInterests)
         return ByInterests(); // special kind of grouping
-      
+
+      var stor = Storage.Instance;
+      if (keys.Length == 2 && predicates.Count == 0)
+      {
+        switch (keys[0]+keys[1])
+        {
+          case "sexcountry":
+            return new GroupByResult { groups = CompositeIndexToResult(stor.GetEntireSetSexCountryCount(), id => 
+            {
+              var (sex,cid) = Account.UnpackSexCountry((byte)id);
+              return (sex?"m,":"f,") + stor.countriesMap.Get(cid);
+            }) };
+          case "countrysex":
+            return new GroupByResult { groups = CompositeIndexToResult(stor.GetEntireSetSexCountryCount(), id => 
+            {
+              var (sex,cid) = Account.UnpackSexCountry((byte)id);
+              return stor.countriesMap.Get(cid) + (sex?",m":",f");
+            }) };
+          case "citystatus":
+            return new GroupByResult { groups = CompositeIndexToResult(stor.GetEntireSetStatusCityCount(), id => 
+            {
+              var (stat,cid) = Account.UnpackStatusCity((ushort)id);
+              return stat == 3 ? null : stor.citiesMap.Get(cid) + "," + Account.GetStatus(stat);
+            }) };
+          case "statuscity":
+            return new GroupByResult { groups = CompositeIndexToResult(stor.GetEntireSetStatusCityCount(), id => 
+            {
+              var (stat,cid) = Account.UnpackStatusCity((ushort)id);
+              return stat == 3 ? null : Account.GetStatus(stat) + "," + stor.citiesMap.Get(cid);
+            }) };
+        }
+      }
       if (keys.Length == 1 && predicates.Count == 0) // use existing index for counting
       {
-        var stor = Storage.Instance;
         switch(keys[0])
         {
           case "sex":
@@ -70,57 +102,80 @@ namespace hlcup2018.Models
       });
 
       return new GroupByResult() { groups = query.Select(ToJson).Take(Limit) };
+    }
 
-      IEnumerable<JObject> IndexToResult(int[] count, Func<int,string> map)
+    IEnumerable<JObject> CompositeIndexToResult(int[] count, Func<int, string> map)
+    {
+      var topN = count
+        .Select((c,i) => new Grouping { id = i, count = c, text = map(i) })
+        .Where(g => g.count > 0)
+        .TakeTopN(Limit, GroupByComparer.Instance[-Order+1]);
+
+      foreach (var g in topN)
       {
-        var topN = count
-          .Select((c,i) => new Grouping { id = i, count = c, text = map(i) })
-          .Where(g => g.count > 0)
-          .TakeTopN(Limit, GroupByComparer.Instance[-Order+1]);
-
-        foreach (var g in topN)
+        var ret = new JObject { ["count"] = g.count };
+        if (g.text is null)
+          yield return ret;
+        else
         {
-          if (g.text is null)
-            yield return new JObject { ["count"] = g.count };
-          else
-            yield return new JObject { ["count"] = g.count, [this.keys[0]] = g.text };
+          var chunks = g.text.Split(',');
+          if (chunks[0] != "") ret[keys[0]] = chunks[0];
+          if (chunks[1] != "") ret[keys[1]] = chunks[1];
+          yield return ret;
         }
-      }
-
-      JObject ToJson(string[] o)
-      {
-        var ret = new JObject();
-        ret["count"] = int.Parse(o[0]); // todo
-        o[0] = null;
-        bool allowNulls = (o.All(x => x == null)) && keys.Length > 1;
-        for(int i = 0; i < keys.Length; ++i)
-        {
-          string val = (string)o[i+1];
-          if (!allowNulls && val == null) continue;
-          ret[keys[i]] = val;
-        }
-        return ret;
-      }
-
-      string[] Unpack(IGrouping<ulong,Account> g, string count)
-      {
-        var ret = new string[keys.Length + 1];
-        ret[0] = count;
-        var acc = g.First();
-        for(int i = 0; i < keys.Length; ++i)
-        {
-          switch(keys[i])
-          {
-            case "sex":     ret[i+1] = acc.sex == 'm' ? "m" : "f"; break;
-            case "status":  ret[i+1] = acc.status; break;
-            case "country": ret[i+1] = acc.country; break;
-            case "city":    ret[i+1] = acc.city; break;
-            default: throw new Exception();
-          }
-        }
-        return ret;
       }
     }
+
+    IEnumerable<JObject> IndexToResult(int[] count, Func<int,string> map)
+    {
+      var topN = count
+        .Select((c,i) => new Grouping { id = i, count = c, text = map(i) })
+        .Where(g => g.count > 0)
+        .TakeTopN(Limit, GroupByComparer.Instance[-Order+1]);
+
+      foreach (var g in topN)
+      {
+        if (g.text is null)
+          yield return new JObject { ["count"] = g.count };
+        else
+          yield return new JObject { ["count"] = g.count, [this.keys[0]] = g.text };
+      }
+    }
+
+    JObject ToJson(string[] o)
+    {
+      var ret = new JObject();
+      ret["count"] = int.Parse(o[0]); // todo
+      o[0] = null;
+      bool allowNulls = (o.All(x => x == null)) && keys.Length > 1;
+      for(int i = 0; i < keys.Length; ++i)
+      {
+        string val = (string)o[i+1];
+        if (!allowNulls && val == null) continue;
+        ret[keys[i]] = val;
+      }
+      return ret;
+    }
+
+    string[] Unpack(IGrouping<ulong,Account> g, string count)
+    {
+      var ret = new string[keys.Length + 1];
+      ret[0] = count;
+      var acc = g.First();
+      for(int i = 0; i < keys.Length; ++i)
+      {
+        switch(keys[i])
+        {
+          case "sex":     ret[i+1] = acc.sex == 'm' ? "m" : "f"; break;
+          case "status":  ret[i+1] = acc.status; break;
+          case "country": ret[i+1] = acc.country; break;
+          case "city":    ret[i+1] = acc.city; break;
+          default: throw new Exception();
+        }
+      }
+      return ret;
+    }
+  
 
     class GroupByComparer
     {
@@ -205,16 +260,24 @@ namespace hlcup2018.Models
         if (this.emptyQuery)
           return Enumerable.Empty<Account>();
 
-        if (!predicates.Any())
+        if (this.predicates.Count == 0)
           return stor.GetAllAccounts();
 
         if (this.selectedIndex != null)
+        {
+          if (this.indexPredicate >= 0)
+          {
+            this.predicates.RemoveAt(this.indexPredicate);
+            if (this.predicates.Count == 0)
+              return this.selectedIndex.Select();
+          }
           return FromIndex();
+        }
 
       return stor.GetAllAccounts().Where(acc => predicates.All(p => p(acc)));
 
       IEnumerable<Account> FromIndex()
-      {
+      {        
         foreach (var acc in this.selectedIndex.Select())
         {
           for (int i = 0; i < predicates.Count; ++i)
@@ -263,7 +326,7 @@ next:
           case "sex":
             if (value != "m" && value != "f") goto notfound;
             ret.predicates.Add(a => a.MatchBySex(value[0]));
-            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetSexIndex(value[0]));
+            PickIndex(ret, stor.GetSexIndex(value[0]));
             break;
           case "email":
             var dom = stor.emailMap.FindDomain(value);
@@ -272,7 +335,7 @@ next:
             var istat = Account.FindStatus(value);
             if (istat < 0) goto notfound;
             ret.predicates.Add(a => a.MatchByStatus(istat));
-            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetStatusIndex((byte)istat));
+            PickIndex(ret, stor.GetStatusIndex((byte)istat));
             break;
           case "fname":
             var fid = stor.firstNamesMap.Find(value);
@@ -288,33 +351,33 @@ next:
             var countryId = stor.countriesMap.Find(value);
             ret.predicates.Add(a => a.MatchByCountry((byte)countryId));
             ret.emptyQuery = countryId == -1;
-            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetCountryIndex((byte)countryId));
+            PickIndex(ret, stor.GetCountryIndex((byte)countryId));
             break;
           case "city":
             var cityId = stor.citiesMap.Find(value);
             ret.predicates.Add(a => a.MatchByCity((ushort)cityId));
             ret.emptyQuery = cityId == -1;
-            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetCityIndex((ushort)cityId));
+            PickIndex(ret, stor.GetCityIndex((ushort)cityId));
             break;
           case "birth":
             if (!int.TryParse(value, out var yr)) return null;
             ret.predicates.Add(a => a.MatchBirthByYear(yr));
-            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetAgeIndex((byte)(yr - 1949)));
+            PickIndex(ret, stor.GetAgeIndex((byte)(yr - 1949)));
             break;
           case "interests":
             var match = new Interests(values);
             ret.predicates.Add(a => a.MatchInterestsAny(match));
-            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetInterestsIndex(match.GetInterestIds()));
+            PickIndex(ret, stor.GetInterestsIndex(match.GetInterestIds()));
             break;
           case "likes":
             if (!int.TryParse(value, out var id)) return null;
             ret.predicates.Add(a => a.MatchByLike(id));
-            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetLikedByIndex(new[] { id }));
+            PickIndex(ret, stor.GetLikedByIndex(new[] { id }));
             break;
           case "joined":
             if (!int.TryParse(value, out var j)) return null;
             ret.predicates.Add(a => a.MatchJoinedByYear(j));
-            ret.selectedIndex = SelectIndex(ret.selectedIndex, stor.GetJoinedIndex((byte)(j - 2010)));
+            PickIndex(ret, stor.GetJoinedIndex((byte)(j - 2010)));
             break;
           default:
             return null; // unknown query param
@@ -330,12 +393,16 @@ notfound:
       code = 404;
       return null;
 
-      IQueryIndex SelectIndex(IQueryIndex left, IQueryIndex right)
+      void PickIndex(GroupBy target, IQueryIndex newIndex, bool resetIndex = false)
       {
-        return left?.Selectivity < right.Selectivity ? left : right;
+        if (target.selectedIndex == null || newIndex.Selectivity < target.selectedIndex.Selectivity)
+        {
+          // if 'contains' index is picked - reset removed predicate index.
+          // we cannot remove predicate in this case, since index does not completely match criteria, needs additional filtering
+          target.selectedIndex = newIndex;
+          target.indexPredicate = resetIndex ? -1 : target.predicates.Count - 1;
+        }
       }
     }
-
   }
-
 }

@@ -51,7 +51,11 @@ namespace hlcup2018.Models
         {
           // remove predicate which filters by index criteria - set is already filtered, no reason to check again
           if (this.indexPredicate >= 0)
+          {
             this.predicates.RemoveAt(this.indexPredicate);
+            if (this.predicates.Count == 0)
+              return this.selectedIndex.Select();
+          }
 
           return this.selectedIndex.Select().Where(acc => predicates.All(p => p(acc)));
         }
